@@ -1,0 +1,480 @@
+/*
+ * HousePulse – Energy Flow widget
+ * Uses Homey's injected widget CSS variables where available, with fallbacks
+ * so the widget also renders correctly outside the dashboard (e.g. in previews).
+ */
+
+:root {
+  --ef-text: var(--homey-text-color, #1c1c1e);
+  --ef-text-muted: var(--homey-text-color-light, #6e6e73);
+  --ef-surface: var(--homey-background-color, #ffffff);
+  /* Derived from the text colour, so they follow Homey's light/dark theme automatically */
+  --ef-track: color-mix(in srgb, var(--ef-text) 10%, transparent);
+  --ef-face: color-mix(in srgb, var(--ef-text) 4%, transparent);
+  --ef-font: var(--homey-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+
+  --ef-grid: #3b82f6;
+  --ef-solar: #f5a524;
+  --ef-ev: #8b5cf6;
+  --ef-battery: #1e9e6a;
+  --ef-home: #64748b;
+  --ef-low: #e5484d;
+  --ef-warn: #d97706;
+
+  --ef-node: 68px;
+  --ef-ring: 4px;
+}
+
+/* Fallback when Homey variables are absent (e.g. opening index.html directly in a browser) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ef-text: var(--homey-text-color, #f2f2f7);
+    --ef-text-muted: var(--homey-text-color-light, #a1a1aa);
+    --ef-surface: var(--homey-background-color, #1c1c1e);
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* No fixed height: the content defines the height, and index.html reports it to Homey */
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--ef-font);
+  color: var(--ef-text);
+  background: transparent;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* ------------------------------------------------------------------ */
+/* Empty / error state                                                 */
+/* ------------------------------------------------------------------ */
+
+.message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 24px;
+  text-align: center;
+}
+
+.message__icon {
+  width: 36px;
+  height: 36px;
+  fill: none;
+  stroke: var(--ef-solar);
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+  margin-bottom: 4px;
+}
+
+.message__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.message__text {
+  margin: 0;
+  max-width: 260px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--ef-text-muted);
+}
+
+/* ------------------------------------------------------------------ */
+/* Layout: plus-shaped flow with Home in the centre                    */
+/* ------------------------------------------------------------------ */
+
+.flow {
+  --ef-gap-v: 30px;
+  padding: 12px 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(16px, 0.7fr) minmax(0, 1fr) minmax(16px, 0.7fr) minmax(0, 1fr);
+  /* Fixed connector rows give the widget an intrinsic height that can be auto-sized */
+  grid-template-rows: auto var(--ef-gap-v) auto var(--ef-gap-v) auto;
+  grid-template-areas:
+    ".    .      solar   .         ."
+    ".    .      c-solar .         ."
+    "grid c-grid home    c-battery battery"
+    ".    .      c-ev    .         ."
+    ".    .      ev      .         .";
+  align-items: start;
+  justify-items: center;
+}
+
+/* ------------------------------------------------------------------ */
+/* Nodes                                                               */
+/* ------------------------------------------------------------------ */
+
+.node {
+  --accent: var(--ef-home);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  transition: opacity 0.3s ease;
+}
+
+.node--grid { --accent: var(--ef-grid); }
+.node--solar { --accent: var(--ef-solar); }
+.node--ev { --accent: var(--ef-ev); }
+.node--battery { --accent: var(--ef-battery); }
+.node--home { --accent: var(--ef-home); }
+
+/* The ring doubles as the state-of-charge indicator (conic gradient) */
+.node__ring {
+  width: var(--ef-node);
+  height: var(--ef-node);
+  padding: var(--ef-ring);
+  border-radius: 50%;
+  background: var(--ef-track);
+  transition: background 0.4s ease, box-shadow 0.4s ease;
+}
+
+.node.is-active .node__ring {
+  background: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+.node.has-soc .node__ring,
+.node.has-soc.is-active .node__ring {
+  background: conic-gradient(
+    var(--accent) calc(var(--soc, 0) * 1%),
+    var(--ef-track) 0
+  );
+}
+
+.node.has-soc.is-low {
+  --accent: var(--ef-low);
+}
+
+.node__face {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: var(--ef-surface);
+  background-image: linear-gradient(var(--ef-face), var(--ef-face));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+
+.node__icon {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.node__value {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+
+.node__label {
+  margin-top: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.node__status {
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--ef-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.node__badge {
+  position: absolute;
+  top: -4px;
+  left: calc(50% + var(--ef-node) / 2 - 18px);
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: #fff;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--ef-surface);
+}
+
+.node.is-unset,
+.node.is-missing,
+.node.is-offline {
+  opacity: 0.45;
+}
+
+.node.is-unset .node__icon,
+.node.is-missing .node__icon {
+  stroke: var(--ef-text-muted);
+}
+
+.node.is-missing .node__status {
+  color: var(--ef-low);
+}
+
+/* Value hasn't been reported for a while: dim it and show "Last 14:02" */
+.node.is-stale {
+  opacity: 0.6;
+}
+
+.node.is-stale .node__ring {
+  background: var(--ef-track);
+  box-shadow: none;
+}
+
+.node.is-stale .node__status {
+  color: var(--ef-warn);
+}
+
+/* ------------------------------------------------------------------ */
+/* Today's totals                                                      */
+/* ------------------------------------------------------------------ */
+
+.today {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 4px 12px;
+  margin: 0 8px;
+  padding: 8px 4px 10px;
+  border-top: 1px solid var(--ef-track);
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--ef-text-muted);
+}
+
+.today__title {
+  font-weight: 600;
+  color: var(--ef-text);
+}
+
+.today__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.today__item b {
+  font-weight: 600;
+  color: var(--ef-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.today__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--dot-color, var(--ef-home));
+}
+
+.today__item--solar { --dot-color: var(--ef-solar); }
+.today__item--grid { --dot-color: var(--ef-grid); }
+.today__item--export { --dot-color: color-mix(in srgb, var(--ef-grid) 45%, transparent); }
+.today__item--ev { --dot-color: var(--ef-ev); }
+.today__item--self { --dot-color: var(--ef-battery); }
+
+/* ------------------------------------------------------------------ */
+/* Connectors with animated flow dots                                  */
+/* ------------------------------------------------------------------ */
+
+.conn {
+  --flow-duration: 2s;
+  --flow-direction: normal;
+  --flow-weight: 2px;
+  --conn-box: 12px;
+  position: relative;
+  pointer-events: none;
+}
+
+.conn--h {
+  width: 100%;
+  height: var(--conn-box);
+  /* centre on the node circle, not on the whole node incl. labels */
+  margin-top: calc(var(--ef-node) / 2 - var(--conn-box) / 2);
+  align-self: start;
+}
+
+.conn--v {
+  width: var(--conn-box);
+  height: 100%;
+  align-self: stretch;
+}
+
+.conn.is-hidden {
+  visibility: hidden;
+}
+
+/* Line thickness follows the power (set from JS via --flow-weight) */
+.conn__line {
+  position: absolute;
+  background: var(--ef-track);
+  border-radius: 3px;
+  transition: height 0.4s ease, width 0.4s ease, background 0.4s ease;
+}
+
+.conn--h .conn__line {
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: var(--flow-weight);
+  transform: translateY(-50%);
+}
+
+.conn--v .conn__line {
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: var(--flow-weight);
+  transform: translateX(-50%);
+}
+
+.conn__dot {
+  --dot: calc(var(--flow-weight) + 4px);
+  position: absolute;
+  width: var(--dot);
+  height: var(--dot);
+  border-radius: 50%;
+  background: var(--dot-color, var(--ef-home));
+  opacity: 0;
+}
+
+.conn[data-conn="grid"] { --dot-color: var(--ef-grid); }
+.conn[data-conn="solar"] { --dot-color: var(--ef-solar); }
+.conn[data-conn="ev"] { --dot-color: var(--ef-ev); }
+.conn[data-conn="battery"] { --dot-color: var(--ef-battery); }
+
+.conn.is-active .conn__line {
+  background: color-mix(in srgb, var(--dot-color) 35%, transparent);
+}
+
+.conn.is-active .conn__dot {
+  animation-duration: var(--flow-duration);
+  animation-direction: var(--flow-direction);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.conn--h.is-active .conn__dot {
+  top: 50%;
+  transform: translateY(-50%);
+  animation-name: flow-x;
+}
+
+.conn--v.is-active .conn__dot {
+  left: 50%;
+  transform: translateX(-50%);
+  animation-name: flow-y;
+}
+
+/* Stagger the three dots evenly along the connector */
+.conn.is-active .conn__dot:nth-child(3) { animation-delay: calc(var(--flow-duration) * -0.333); }
+.conn.is-active .conn__dot:nth-child(4) { animation-delay: calc(var(--flow-duration) * -0.666); }
+
+@keyframes flow-x {
+  0%   { left: calc(var(--dot) / -2); opacity: 0; }
+  15%  { opacity: 1; }
+  85%  { opacity: 1; }
+  100% { left: calc(100% - var(--dot) / 2); opacity: 0; }
+}
+
+@keyframes flow-y {
+  0%   { top: calc(var(--dot) / -2); opacity: 0; }
+  15%  { opacity: 1; }
+  85%  { opacity: 1; }
+  100% { top: calc(100% - var(--dot) / 2); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .conn.is-active .conn__dot {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/* Hint when the calculated consumption stays negative (likely a sign setting) */
+.sign-hint {
+  margin: 0 12px 10px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: center;
+  color: var(--ef-text);
+  background: color-mix(in srgb, var(--ef-warn) 14%, transparent);
+}
+
+/* Note shown while devices are picked automatically */
+.auto-note {
+  margin: 0 12px 10px;
+  font-size: 10px;
+  line-height: 1.35;
+  text-align: center;
+  color: var(--ef-text-muted);
+}
+
+/* ------------------------------------------------------------------ */
+/* Debug footer (only visible under `homey app run`)                   */
+/* ------------------------------------------------------------------ */
+
+.debug {
+  margin: 0 8px 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px dashed var(--ef-low);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 9px;
+  line-height: 1.35;
+  color: var(--ef-text-muted);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* Narrow dashboard columns */
+@media (max-width: 300px) {
+  :root {
+    --ef-node: 58px;
+    --ef-ring: 3px;
+  }
+  .node__value { font-size: 11px; }
+  .node__label { font-size: 11px; }
+  .node__status { font-size: 10px; }
+}

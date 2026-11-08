@@ -1,0 +1,343 @@
+{
+  "id": "com.housepulse.energy",
+  "version": "1.0.0",
+  "compatibility": ">=12.1.0",
+  "sdk": 3,
+  "platforms": [
+    "local"
+  ],
+  "name": {
+    "en": "HousePulse",
+    "sv": "HousePulse"
+  },
+  "description": {
+    "en": "See how power flows between grid, solar, EV charger and home battery at a glance.",
+    "sv": "Se hur energin flödar mellan nät, solceller, laddbox och hembatteri.",
+    "no": "Se hvordan strømmen flyter mellom nett, solceller, elbillader og hjemmebatteri.",
+    "da": "Se hvordan strømmen flyder mellem net, solceller, elbillader og hjemmebatteri.",
+    "de": "Sieh auf einen Blick, wie Strom zwischen Netz, Solar, Wallbox und Heimspeicher fließt.",
+    "nl": "Zie in één oogopslag hoe stroom stroomt tussen net, zonnepanelen, laadpaal en thuisbatterij."
+  },
+  "category": [
+    "energy"
+  ],
+  "permissions": [
+    "homey:manager:api"
+  ],
+  "brandColor": "#1E9E6A",
+  "images": {
+    "small": "/assets/images/small.png",
+    "large": "/assets/images/large.png",
+    "xlarge": "/assets/images/xlarge.png"
+  },
+  "icon": "/assets/icon.svg",
+  "author": {
+    "name": "Teddy",
+    "email": "teddyhq@hotmail.com"
+  },
+  "widgets": {
+    "energy_flow_dash": {
+      "id": "energy_flow_dash",
+      "name": {
+        "en": "Energy Flow",
+        "sv": "Energiflöde",
+        "no": "Energiflyt",
+        "da": "Energiflow",
+        "de": "Energiefluss",
+        "nl": "Energiestroom"
+      },
+      "height": 400,
+      "transparent": false,
+      "settings": [
+        {
+          "id": "grid_device",
+          "type": "autocomplete",
+          "title": {
+            "en": "Grid meter",
+            "sv": "Nät (elmätare)",
+            "no": "Nett (strømmåler)",
+            "da": "Net (elmåler)",
+            "de": "Netz (Stromzähler)",
+            "nl": "Net (energiemeter)"
+          },
+          "hint": {
+            "en": "Your electricity meter (e.g. a P1/HAN meter), or the grid value of a hybrid inverter. Positive = import, negative = export.",
+            "sv": "Din elmätare (t.ex. P1/HAN-mätare), eller nätvärdet från en hybridväxelriktare. Positivt = köp, negativt = export.",
+            "no": "Strømmåleren din (f.eks. HAN/P1), eller nettverdien fra en hybridomformer. Positiv = kjøp, negativ = salg.",
+            "da": "Din elmåler (f.eks. HAN/P1), eller netværdien fra en hybridinverter. Positiv = køb, negativ = salg.",
+            "de": "Dein Stromzähler (z. B. P1/Smart Meter) oder der Netzwert eines Hybrid-Wechselrichters. Positiv = Bezug, negativ = Einspeisung.",
+            "nl": "Je energiemeter (bijv. P1), of de netwaarde van een hybride omvormer. Positief = afname, negatief = teruglevering."
+          }
+        },
+        {
+          "id": "grid_invert",
+          "type": "checkbox",
+          "title": {
+            "en": "Invert grid sign",
+            "sv": "Invertera tecken för nät",
+            "no": "Inverter fortegn for nett",
+            "da": "Vend fortegn for net",
+            "de": "Vorzeichen Netz umkehren",
+            "nl": "Teken net omkeren"
+          },
+          "value": false
+        },
+        {
+          "id": "solar_device",
+          "type": "autocomplete",
+          "title": {
+            "en": "Solar inverter",
+            "sv": "Solceller (växelriktare)",
+            "no": "Solceller (omformer)",
+            "da": "Solceller (inverter)",
+            "de": "Solar (Wechselrichter)",
+            "nl": "Zonnepanelen (omvormer)"
+          },
+          "hint": {
+            "en": "A solar inverter, or the solar value of a hybrid inverter/dongle.",
+            "sv": "En växelriktare, eller solvärdet från en hybridväxelriktare/dongel.",
+            "no": "En solcelleomformer, eller solverdien fra en hybridomformer/dongle.",
+            "da": "En solcelleinverter, eller solværdien fra en hybridinverter/dongle.",
+            "de": "Ein Solar-Wechselrichter oder der Solarwert eines Hybrid-Wechselrichters/Dongles.",
+            "nl": "Een omvormer, of de zonnewaarde van een hybride omvormer/dongle."
+          }
+        },
+        {
+          "id": "solar_device_2",
+          "type": "autocomplete",
+          "title": {
+            "en": "Solar inverter 2 (optional)",
+            "sv": "Solceller 2 (valfri)",
+            "no": "Solceller 2 (valgfri)",
+            "da": "Solceller 2 (valgfri)",
+            "de": "Solar 2 (optional)",
+            "nl": "Zonnepanelen 2 (optioneel)"
+          },
+          "hint": {
+            "en": "A second inverter. Its power and today's production are added to the first.",
+            "sv": "En andra växelriktare. Effekt och dagens produktion läggs ihop med den första.",
+            "no": "En ekstra omformer. Effekt og dagens produksjon legges sammen med den første.",
+            "da": "En ekstra inverter. Effekt og dagens produktion lægges sammen med den første.",
+            "de": "Ein zweiter Wechselrichter. Leistung und heutige Erzeugung werden zum ersten addiert.",
+            "nl": "Een tweede omvormer. Vermogen en productie van vandaag worden bij de eerste opgeteld."
+          }
+        },
+        {
+          "id": "ev_device",
+          "type": "autocomplete",
+          "title": {
+            "en": "EV charger",
+            "sv": "Laddbox",
+            "no": "Elbillader",
+            "da": "Elbillader",
+            "de": "Wallbox",
+            "nl": "Laadpaal"
+          },
+          "hint": {
+            "en": "A device with measure_power reporting charging power.",
+            "sv": "En enhet med measure_power som rapporterar laddeffekt.",
+            "no": "En enhet som rapporterer ladeeffekt.",
+            "da": "En enhed, der rapporterer ladeeffekt.",
+            "de": "Ein Gerät, das die Ladeleistung meldet.",
+            "nl": "Een apparaat dat het laadvermogen meldt."
+          }
+        },
+        {
+          "id": "ev_device_2",
+          "type": "autocomplete",
+          "title": {
+            "en": "EV charger 2 (optional)",
+            "sv": "Laddbox 2 (valfri)",
+            "no": "Elbillader 2 (valgfri)",
+            "da": "Elbillader 2 (valgfri)",
+            "de": "Wallbox 2 (optional)",
+            "nl": "Laadpaal 2 (optioneel)"
+          },
+          "hint": {
+            "en": "A second charger. Its power is added to the first.",
+            "sv": "En andra laddbox. Effekten läggs ihop med den första.",
+            "no": "En ekstra lader. Effekten legges sammen med den første.",
+            "da": "En ekstra lader. Effekten lægges sammen med den første.",
+            "de": "Eine zweite Wallbox. Die Leistung wird zur ersten addiert.",
+            "nl": "Een tweede laadpaal. Het vermogen wordt bij de eerste opgeteld."
+          }
+        },
+        {
+          "id": "car_device",
+          "type": "autocomplete",
+          "title": {
+            "en": "Car (battery %)",
+            "sv": "Bil (batteri %)",
+            "no": "Bil (batteri %)",
+            "da": "Bil (batteri %)",
+            "de": "Auto (Akku %)",
+            "nl": "Auto (accu %)"
+          },
+          "hint": {
+            "en": "Optional. An electric car with battery level. Its state of charge is shown on the EV charger.",
+            "sv": "Valfri. En elbil med batterinivå. Laddnivån visas på laddboxen.",
+            "no": "Valgfri. En elbil med batterinivå. Ladenivået vises på laderen.",
+            "da": "Valgfri. En elbil med batteriniveau. Ladeniveauet vises på laderen.",
+            "de": "Optional. Ein Elektroauto mit Akkustand. Der Ladestand wird an der Wallbox angezeigt.",
+            "nl": "Optioneel. Een elektrische auto met accuniveau. Het laadniveau wordt bij de laadpaal getoond."
+          }
+        },
+        {
+          "id": "battery_device",
+          "type": "autocomplete",
+          "title": {
+            "en": "Home battery",
+            "sv": "Hembatteri",
+            "no": "Hjemmebatteri",
+            "da": "Hjemmebatteri",
+            "de": "Heimspeicher",
+            "nl": "Thuisbatterij"
+          },
+          "hint": {
+            "en": "A home battery. Pick \"State of charge only\" if its power comes from another device. Positive power = charging.",
+            "sv": "Ett hembatteri. Välj \"Endast laddnivå\" om effekten kommer från en annan enhet. Positiv effekt = laddar.",
+            "no": "Et hjemmebatteri. Velg \"Kun ladenivå\" hvis effekten kommer fra en annen enhet. Positiv effekt = lader.",
+            "da": "Et hjemmebatteri. Vælg \"Kun ladeniveau\", hvis effekten kommer fra en anden enhed. Positiv effekt = lader.",
+            "de": "Ein Heimspeicher. Wähle \"Nur Ladestand\", wenn die Leistung von einem anderen Gerät kommt. Positive Leistung = lädt.",
+            "nl": "Een thuisbatterij. Kies \"Alleen laadniveau\" als het vermogen van een ander apparaat komt. Positief vermogen = laden."
+          }
+        },
+        {
+          "id": "battery_device_2",
+          "type": "autocomplete",
+          "title": {
+            "en": "Home battery 2 (optional)",
+            "sv": "Hembatteri 2 (valfri)",
+            "no": "Hjemmebatteri 2 (valgfri)",
+            "da": "Hjemmebatteri 2 (valgfri)",
+            "de": "Heimspeicher 2 (optional)",
+            "nl": "Thuisbatterij 2 (optioneel)"
+          },
+          "hint": {
+            "en": "A second battery. Power is added; state of charge is averaged.",
+            "sv": "Ett andra batteri. Effekten läggs ihop; laddnivån blir ett medelvärde.",
+            "no": "Et ekstra batteri. Effekten legges sammen; ladenivået blir et gjennomsnitt.",
+            "da": "Et ekstra batteri. Effekten lægges sammen; ladeniveauet bliver et gennemsnit.",
+            "de": "Ein zweiter Speicher. Leistung wird addiert, der Ladestand gemittelt.",
+            "nl": "Een tweede batterij. Vermogen wordt opgeteld, het laadniveau gemiddeld."
+          }
+        },
+        {
+          "id": "battery_invert",
+          "type": "checkbox",
+          "title": {
+            "en": "Invert battery sign",
+            "sv": "Invertera tecken för batteri",
+            "no": "Inverter fortegn for batteri",
+            "da": "Vend fortegn for batteri",
+            "de": "Vorzeichen Speicher umkehren",
+            "nl": "Teken batterij omkeren"
+          },
+          "value": false
+        },
+        {
+          "id": "home_device",
+          "type": "autocomplete",
+          "title": {
+            "en": "Home consumption meter (optional)",
+            "sv": "Hemmets förbrukning (valfri)",
+            "no": "Husets forbruk (valgfri)",
+            "da": "Husets forbrug (valgfri)",
+            "de": "Hausverbrauch (optional)",
+            "nl": "Huisverbruik (optioneel)"
+          },
+          "hint": {
+            "en": "A device measuring the house's own consumption. Without it, consumption is calculated from the other devices.",
+            "sv": "En enhet som mäter husets egen förbrukning. Utan den räknas förbrukningen ut från de andra enheterna.",
+            "no": "En enhet som måler husets eget forbruk. Uten den beregnes forbruket fra de andre enhetene.",
+            "da": "En enhed, der måler husets eget forbrug. Uden den beregnes forbruget ud fra de andre enheder.",
+            "de": "Ein Gerät, das den Verbrauch des Hauses misst. Ohne es wird der Verbrauch aus den anderen Geräten berechnet.",
+            "nl": "Een apparaat dat het eigen verbruik van het huis meet. Zonder wordt het verbruik berekend uit de andere apparaten."
+          }
+        },
+        {
+          "id": "stale_minutes",
+          "type": "dropdown",
+          "title": {
+            "en": "Mark values as old after",
+            "sv": "Markera värden som gamla efter",
+            "no": "Merk verdier som gamle etter",
+            "da": "Marker værdier som gamle efter",
+            "de": "Werte als veraltet markieren nach",
+            "nl": "Waarden als oud markeren na"
+          },
+          "value": "10",
+          "values": [
+            {
+              "id": "5",
+              "title": {
+                "en": "5 minutes",
+                "sv": "5 minuter",
+                "no": "5 minutter",
+                "da": "5 minutter",
+                "de": "5 Minuten",
+                "nl": "5 minuten"
+              }
+            },
+            {
+              "id": "10",
+              "title": {
+                "en": "10 minutes",
+                "sv": "10 minuter",
+                "no": "10 minutter",
+                "da": "10 minutter",
+                "de": "10 Minuten",
+                "nl": "10 minuten"
+              }
+            },
+            {
+              "id": "30",
+              "title": {
+                "en": "30 minutes",
+                "sv": "30 minuter",
+                "no": "30 minutter",
+                "da": "30 minutter",
+                "de": "30 Minuten",
+                "nl": "30 minuten"
+              }
+            },
+            {
+              "id": "0",
+              "title": {
+                "en": "Never",
+                "sv": "Aldrig",
+                "no": "Aldri",
+                "da": "Aldrig",
+                "de": "Nie",
+                "nl": "Nooit"
+              }
+            }
+          ]
+        },
+        {
+          "id": "show_today",
+          "type": "checkbox",
+          "title": {
+            "en": "Show today's totals (kWh)",
+            "sv": "Visa dagens summor (kWh)",
+            "no": "Vis dagens summer (kWh)",
+            "da": "Vis dagens summer (kWh)",
+            "de": "Heutige Summen anzeigen (kWh)",
+            "nl": "Totalen van vandaag tonen (kWh)"
+          },
+          "value": true
+        }
+      ],
+      "api": {
+        "subscribe": {
+          "method": "POST",
+          "path": "/subscribe"
+        },
+        "suggest": {
+          "method": "GET",
+          "path": "/suggest"
+        }
+      }
+    }
+  }
+}

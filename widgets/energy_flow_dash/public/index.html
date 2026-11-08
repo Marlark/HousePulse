@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="homey-widget">
+<main id="root">
+
+  <!-- Shown when no device is configured, or when loading fails -->
+  <div id="message" class="message" hidden>
+    <svg class="message__icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/>
+    </svg>
+    <p class="message__title" id="message-title"></p>
+    <p class="message__text" id="message-text"></p>
+  </div>
+
+  <div id="flow" class="flow" hidden>
+
+    <!-- Connectors: dots travel toward Home when data-in="forward" plays normally -->
+    <div class="conn conn--v" data-conn="solar" data-in="forward" style="grid-area: c-solar">
+      <span class="conn__line"></span>
+      <span class="conn__dot"></span><span class="conn__dot"></span><span class="conn__dot"></span>
+    </div>
+    <div class="conn conn--h" data-conn="grid" data-in="forward" style="grid-area: c-grid">
+      <span class="conn__line"></span>
+      <span class="conn__dot"></span><span class="conn__dot"></span><span class="conn__dot"></span>
+    </div>
+    <div class="conn conn--h" data-conn="battery" data-in="reverse" style="grid-area: c-battery">
+      <span class="conn__line"></span>
+      <span class="conn__dot"></span><span class="conn__dot"></span><span class="conn__dot"></span>
+    </div>
+    <div class="conn conn--v" data-conn="ev" data-in="reverse" style="grid-area: c-ev">
+      <span class="conn__line"></span>
+      <span class="conn__dot"></span><span class="conn__dot"></span><span class="conn__dot"></span>
+    </div>
+
+    <!-- Nodes -->
+    <div class="node node--solar" data-node="solar" style="grid-area: solar">
+      <div class="node__ring">
+        <div class="node__face">
+          <svg class="node__icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>
+          </svg>
+          <span class="node__value" data-value>—</span>
+        </div>
+      </div>
+      <span class="node__badge" data-badge hidden></span>
+      <span class="node__label" data-label></span>
+      <span class="node__status" data-status></span>
+    </div>
+
+    <div class="node node--grid" data-node="grid" style="grid-area: grid">
+      <div class="node__ring">
+        <div class="node__face">
+          <svg class="node__icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8 22 12 2l4 20M9.2 16h5.6M10 12h4M6 6h12M7 9h10"/>
+          </svg>
+          <span class="node__value" data-value>—</span>
+        </div>
+      </div>
+      <span class="node__badge" data-badge hidden></span>
+      <span class="node__label" data-label></span>
+      <span class="node__status" data-status></span>
+    </div>
+
+    <div class="node node--home" data-node="home" style="grid-area: home">
+      <div class="node__ring">
+        <div class="node__face">
+          <svg class="node__icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 11 12 3l9 8M5 9.5V21h14V9.5M10 21v-6h4v6"/>
+          </svg>
+          <span class="node__value" data-value>—</span>
+        </div>
+      </div>
+      <span class="node__badge" data-badge hidden></span>
+      <span class="node__label" data-label></span>
+      <span class="node__status" data-status></span>
+    </div>
+
+    <div class="node node--battery" data-node="battery" style="grid-area: battery">
+      <div class="node__ring">
+        <div class="node__face">
+          <svg class="node__icon" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="6" y="4" width="12" height="18" rx="2"/>
+            <path d="M10 2h4M12 9l-2 4h4l-2 4"/>
+          </svg>
+          <span class="node__value" data-value>—</span>
+        </div>
+      </div>
+      <span class="node__badge" data-badge hidden></span>
+      <span class="node__label" data-label></span>
+      <span class="node__status" data-status></span>
+    </div>
+
+    <div class="node node--ev" data-node="ev" style="grid-area: ev">
+      <div class="node__ring">
+        <div class="node__face">
+          <svg class="node__icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 17h14v-5l-2-5H7l-2 5v5zM5 12h14M7.5 17v2M16.5 17v2"/>
+            <circle cx="8" cy="14.5" r="0.6"/>
+            <circle cx="16" cy="14.5" r="0.6"/>
+          </svg>
+          <span class="node__value" data-value>—</span>
+        </div>
+      </div>
+      <span class="node__badge" data-badge hidden></span>
+      <span class="node__label" data-label></span>
+      <span class="node__status" data-status></span>
+    </div>
+
+  </div>
+
+  <!-- Today's totals (kWh) and self-sufficiency -->
+  <div id="today" class="today" hidden>
+    <span class="today__title" data-today-title></span>
+    <span class="today__item today__item--solar" data-today="solar" hidden>
+      <span class="today__dot"></span><span data-label></span> <b data-value></b>
+    </span>
+    <span class="today__item today__item--grid" data-today="import" hidden>
+      <span class="today__dot"></span><span data-label></span> <b data-value></b>
+    </span>
+    <span class="today__item today__item--export" data-today="export" hidden>
+      <span class="today__dot"></span><span data-label></span> <b data-value></b>
+    </span>
+    <span class="today__item today__item--ev" data-today="ev" hidden>
+      <span class="today__dot"></span><span data-label></span> <b data-value></b>
+    </span>
+    <span class="today__item today__item--self" data-today="self" hidden>
+      <span class="today__dot"></span><span data-label></span> <b data-value></b>
+    </span>
+  </div>
+
+  <!-- Shown when the calculated home consumption stays negative (likely a sign setting) -->
+  <p id="sign-hint" class="sign-hint" hidden></p>
+
+  <!-- Shown while the widget uses automatically suggested devices (nothing configured yet) -->
+  <p id="auto-note" class="auto-note" hidden></p>
+
+  <!-- Only shown when the app runs via `homey app run` (backend returns debug: true) -->
+  <div id="debug" class="debug" hidden></div>
+
+</main>
+
+  <script>
+    'use strict';
+
+    // Roles with their own node in the flow
+    const NODE_ROLES = ['grid', 'solar', 'ev', 'battery'];
+    // Widget settings that feed each role. 'car' and 'home' have no node of their own:
+    // the car's SoC is shown on the EV charger, the home meter drives the centre node.
+    const ROLE_SETTINGS = {
+      grid: ['grid_device'],
+      solar: ['solar_device', 'solar_device_2'],
+      ev: ['ev_device', 'ev_device_2'],
+      battery: ['battery_device', 'battery_device_2'],
+      car: ['car_device'],
+      home: ['home_device'],
+    };
+    const ALL_ROLES = Object.keys(ROLE_SETTINGS);
+    // "— None —" entry in the device pickers (see NONE_ID in app.js): means no device.
+    const NONE_ID = '__none__';
+
+    const IDLE_THRESHOLD_W = 10;
+    const LOW_SOC_PERCENT = 20;
+    const HOME_CALC_WARNING_W = -100;
+    const SIGN_HINT_AFTER_MS = 3 * 60 * 1000;
+    const RESUBSCRIBE_INTERVAL_MS = 60 * 1000;
+    const STALE_CHECK_INTERVAL_MS = 30 * 1000;
+
+    // Languages follow Homey's language codes (en, sv, no, da, de, nl).
+    const STRINGS = {
+      en: {
+        grid: 'Grid', solar: 'Solar', ev: 'EV charger', battery: 'Battery', home: 'Home',
+        import: 'Import', export: 'Export', producing: 'Producing', charging: 'Charging',
+        discharging: 'Discharging', idle: 'Idle', consumption: 'Consumption', estimated: 'Estimated',
+        notSet: 'Not set', offline: 'Offline', missing: 'Device not found', lastSeen: 'Last {time}',
+        today: 'Today', todaySolar: 'Solar', todayImport: 'Bought', todayExport: 'Sold', todayEv: 'EV',
+        selfSufficiency: 'Self-sufficient', now: 'now', todayShort: 'today',
+        configureTitle: 'No devices selected',
+        configureText: 'Please configure in settings: edit the widget and pick your Grid, Solar, EV charger, Car and Home battery devices.',
+        errorTitle: 'Could not load devices',
+        errorText: 'Retrying shortly…',
+        autoNote: 'Devices were picked automatically. Edit the widget to change them.',
+        signHint: 'Consumption comes out negative. Check the sign settings for grid and battery in the widget settings.',
+        signHintGrid: 'Consumption comes out negative. Try "Invert grid sign" in the widget settings.',
+        signHintBattery: 'Consumption comes out negative. Try "Invert battery sign" in the widget settings.',
+      },
+      sv: {
+        grid: 'Nät', solar: 'Solceller', ev: 'Laddbox', battery: 'Hembatteri', home: 'Hem',
+        import: 'Köper', export: 'Säljer', producing: 'Producerar', charging: 'Laddar',
+        discharging: 'Urladdning', idle: 'Vila', consumption: 'Förbrukning', estimated: 'Beräknad',
+        notSet: 'Ej vald', offline: 'Offline', missing: 'Enheten saknas', lastSeen: 'Senast {time}',
+        today: 'Idag', todaySolar: 'Sol', todayImport: 'Köpt', todayExport: 'Sålt', todayEv: 'Bil',
+        selfSufficiency: 'Självförsörjning', now: 'nu', todayShort: 'idag',
+        configureTitle: 'Inga enheter valda',
+        configureText: 'Konfigurera i inställningarna: redigera widgeten och välj enheter för Nät, Solceller, Laddbox, Bil och Hembatteri.',
+        errorTitle: 'Kunde inte ladda enheter',
+        errorText: 'Försöker igen strax…',
+        autoNote: 'Enheterna valdes automatiskt. Redigera widgeten för att ändra.',
+        signHint: 'Förbrukningen blir negativ. Kontrollera teckeninställningarna för nät och batteri i widgetens inställningar.',
+        signHintGrid: 'Förbrukningen blir negativ. Prova "Invertera tecken för nät" i widgetens inställningar.',
+        signHintBattery: 'Förbrukningen blir negativ. Prova "Invertera tecken för batteri" i widgetens inställningar.',
+      },
+      no: {
+        grid: 'Nett', solar: 'Solceller', ev: 'Elbillader', battery: 'Hjemmebatteri', home: 'Hjem',
+        import: 'Kjøper', export: 'Selger', producing: 'Produserer', charging: 'Lader',
+        discharging: 'Utlading', idle: 'Hviler', consumption: 'Forbruk', estimated: 'Beregnet',
+        notSet: 'Ikke valgt', offline: 'Frakoblet', missing: 'Enheten finnes ikke', lastSeen: 'Sist {time}',
+        today: 'I dag', todaySolar: 'Sol', todayImport: 'Kjøpt', todayExport: 'Solgt', todayEv: 'Bil',
+        selfSufficiency: 'Selvforsyning', now: 'nå', todayShort: 'i dag',
+        configureTitle: 'Ingen enheter valgt',
+        configureText: 'Konfigurer i innstillingene: rediger widgeten og velg enheter for Nett, Solceller, Elbillader, Bil og Hjemmebatteri.',
+        errorTitle: 'Kunne ikke laste enheter',
+        errorText: 'Prøver igjen snart…',
+        autoNote: 'Enhetene ble valgt automatisk. Rediger widgeten for å endre dem.',
+        signHint: 'Forbruket blir negativt. Sjekk fortegnsinnstillingene for nett og batteri i widgetens innstillinger.',
+        signHintGrid: 'Forbruket blir negativt. Prøv "Inverter fortegn for nett" i widgetens innstillinger.',
+        signHintBattery: 'Forbruket blir negativt. Prøv "Inverter fortegn for batteri" i widgetens innstillinger.',
+      },
+      da: {
+        grid: 'Net', solar: 'Solceller', ev: 'Elbillader', battery: 'Hjemmebatteri', home: 'Hjem',
+        import: 'Køber', export: 'Sælger', producing: 'Producerer', charging: 'Lader',
+        discharging: 'Afladning', idle: 'Hviler', consumption: 'Forbrug', estimated: 'Beregnet',
+        notSet: 'Ikke valgt', offline: 'Offline', missing: 'Enheden findes ikke', lastSeen: 'Senest {time}',
+        today: 'I dag', todaySolar: 'Sol', todayImport: 'Købt', todayExport: 'Solgt', todayEv: 'Bil',
+        selfSufficiency: 'Selvforsyning', now: 'nu', todayShort: 'i dag',
+        configureTitle: 'Ingen enheder valgt',
+        configureText: 'Konfigurer i indstillingerne: rediger widgetten og vælg enheder for Net, Solceller, Elbillader, Bil og Hjemmebatteri.',
+        errorTitle: 'Kunne ikke indlæse enheder',
+        errorText: 'Prøver igen om lidt…',
+        autoNote: 'Enhederne blev valgt automatisk. Rediger widgetten for at ændre dem.',
+        signHint: 'Forbruget bliver negativt. Tjek fortegnsindstillingerne for net og batteri i widgettens indstillinger.',
+        signHintGrid: 'Forbruget bliver negativt. Prøv "Vend fortegn for net" i widgettens indstillinger.',
+        signHintBattery: 'Forbruget bliver negativt. Prøv "Vend fortegn for batteri" i widgettens indstillinger.',
+      },
+      de: {
+        grid: 'Netz', solar: 'Solar', ev: 'Wallbox', battery: 'Heimspeicher', home: 'Haus',
+        import: 'Bezug', export: 'Einspeisung', producing: 'Erzeugt', charging: 'Lädt',
+        discharging: 'Entlädt', idle: 'Ruhe', consumption: 'Verbrauch', estimated: 'Berechnet',
+        notSet: 'Nicht gewählt', offline: 'Offline', missing: 'Gerät nicht gefunden', lastSeen: 'Zuletzt {time}',
+        today: 'Heute', todaySolar: 'Solar', todayImport: 'Bezogen', todayExport: 'Eingespeist', todayEv: 'Auto',
+        selfSufficiency: 'Autarkie', now: 'jetzt', todayShort: 'heute',
+        configureTitle: 'Keine Geräte ausgewählt',
+        configureText: 'Bitte in den Einstellungen konfigurieren: Widget bearbeiten und Geräte für Netz, Solar, Wallbox, Auto und Heimspeicher wählen.',
+        errorTitle: 'Geräte konnten nicht geladen werden',
+        errorText: 'Neuer Versuch in Kürze…',
+        autoNote: 'Die Geräte wurden automatisch gewählt. Bearbeite das Widget, um sie zu ändern.',
+        signHint: 'Der Verbrauch wird negativ. Prüfe die Vorzeichen-Einstellungen für Netz und Speicher in den Widget-Einstellungen.',
+        signHintGrid: 'Der Verbrauch wird negativ. Probiere "Vorzeichen Netz umkehren" in den Widget-Einstellungen.',
+        signHintBattery: 'Der Verbrauch wird negativ. Probiere "Vorzeichen Speicher umkehren" in den Widget-Einstellungen.',
+      },
+      nl: {
+        grid: 'Net', solar: 'Zonnepanelen', ev: 'Laadpaal', battery: 'Thuisbatterij', home: 'Huis',
+        import: 'Afname', export: 'Teruglevering', producing: 'Produceert', charging: 'Laadt',
+        discharging: 'Ontlaadt', idle: 'Rust', consumption: 'Verbruik', estimated: 'Berekend',
+        notSet: 'Niet gekozen', offline: 'Offline', missing: 'Apparaat niet gevonden', lastSeen: 'Laatst {time}',
+        today: 'Vandaag', todaySolar: 'Zon', todayImport: 'Afgenomen', todayExport: 'Teruggeleverd', todayEv: 'Auto',
+        selfSufficiency: 'Zelfvoorziening', now: 'nu', todayShort: 'vandaag',
+        configureTitle: 'Geen apparaten gekozen',
+        configureText: 'Configureer in de instellingen: bewerk de widget en kies apparaten voor Net, Zonnepanelen, Laadpaal, Auto en Thuisbatterij.',
+        errorTitle: 'Apparaten konden niet worden geladen',
+        errorText: 'Zo meteen opnieuw…',
+        autoNote: 'De apparaten zijn automatisch gekozen. Bewerk de widget om ze te wijzigen.',
+        signHint: 'Het verbruik wordt negatief. Controleer de teken-instellingen voor net en batterij in de widget-instellingen.',
+        signHintGrid: 'Het verbruik wordt negatief. Probeer "Teken net omkeren" in de widget-instellingen.',
+        signHintBattery: 'Het verbruik wordt negatief. Probeer "Teken batterij omkeren" in de widget-instellingen.',
+      },
+    };
+
+    function pickLanguage(Homey) {
+      let lang = null;
+      try {
+        if (Homey.i18n && typeof Homey.i18n.getLanguage === 'function') lang = Homey.i18n.getLanguage();
+      } catch (err) { /* fall through */ }
+      lang = String(lang || navigator.language || 'en').slice(0, 2).toLowerCase();
+      if (lang === 'nb' || lang === 'nn') lang = 'no'; // browser codes for Norwegian
+      return STRINGS[lang] ? lang : 'en';
+    }
+
+    function toNumber(value) {
+      if (value === null || value === undefined || value === '') return null;
+      const n = Number(value);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    const sum = (values) => values.reduce((a, b) => a + b, 0);
+
+    // Seconds for one dot to cross a connector: faster for higher power.
+    function flowDuration(watts) {
+      const kw = Math.min(Math.abs(watts) / 1000, 11);
+      return Math.max(0.6, 2.8 - Math.log2(1 + kw) * 0.6);
+    }
+
+    // Connector thickness in px: 2 px when idle-ish, up to 6 px around 7 kW and above.
+    function flowWeight(watts) {
+      const kw = Math.abs(watts) / 1000;
+      return 2 + Math.min(4, Math.log2(1 + kw) * 1.4);
+    }
+
+    // eslint-disable-next-line no-unused-vars
+    async function onHomeyReady(Homey) {
+      const lang = pickLanguage(Homey);
+      const t = STRINGS[lang];
+      const fmt1 = new Intl.NumberFormat(lang, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+      const fmt2 = new Intl.NumberFormat(lang, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const fmt0 = new Intl.NumberFormat(lang, { maximumFractionDigits: 0 });
+
+      function formatPower(watts) {
+        if (watts === null || watts === undefined || Number.isNaN(watts)) return '—';
+        const abs = Math.abs(watts);
+        if (abs < 1000) return `${fmt0.format(abs)} W`;
+        const kw = abs / 1000;
+        return `${(kw < 10 ? fmt2 : fmt1).format(kw)} kW`;
+      }
+
+      function formatKwh(kwh, approximate) {
+        const text = `${(kwh >= 100 ? fmt0 : fmt1).format(kwh)} kWh`;
+        return approximate ? `≈ ${text}` : text;
+      }
+
+      function formatTime(ts) {
+        return new Date(ts).toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' });
+      }
+
+      const settings = (await Promise.resolve(Homey.getSettings())) || {};
+      const invert = {
+        grid: settings.grid_invert === true,
+        battery: settings.battery_invert === true,
+      };
+      const staleMs = (toNumber(settings.stale_minutes) ?? 10) * 60 * 1000;
+      const showToday = settings.show_today !== false;
+
+      /* ---------------- State ---------------- */
+
+      // A "source" is a device, or one specific capability of a device ("<deviceId>|<capabilityId>",
+      // e.g. a solar sub-capability of a hybrid inverter). sourceId -> per-source state.
+      const sources = new Map();
+      // role -> [sourceId]
+      const roleIds = {};
+      // deviceId -> [sourceId], to route live updates that arrive per device + capability
+      const deviceSources = new Map();
+
+      function addSource(role, selected) {
+        const sourceId = selected && typeof selected === 'object' ? selected.id : null;
+        if (!sourceId || sourceId === NONE_ID || roleIds[role].includes(sourceId)) return;
+        roleIds[role].push(sourceId);
+        if (sources.has(sourceId)) return;
+
+        const deviceId = sourceId.split('|')[0];
+        sources.set(sourceId, {
+          id: sourceId,
+          deviceId,
+          name: selected.name || null,
+          missing: false,
+          available: true,
+          powerCap: null,
+          socCap: null,
+          hasPower: false,
+          hasSoc: false,
+          power: null,
+          powerTs: null,
+          soc: null,
+          today: null,
+        });
+        if (!deviceSources.has(deviceId)) deviceSources.set(deviceId, []);
+        deviceSources.get(deviceId).push(sourceId);
+      }
+
+      for (const role of ALL_ROLES) roleIds[role] = [];
+
+      // Nothing configured at all (not even "None") → use devices suggested by the app,
+      // based on Homey's energy metadata and device classes.
+      const hasAnySetting = ALL_ROLES.some((role) => ROLE_SETTINGS[role].some((key) => settings[key] && settings[key].id));
+      let autoMode = false;
+      if (hasAnySetting) {
+        for (const role of ALL_ROLES) {
+          for (const key of ROLE_SETTINGS[role]) addSource(role, settings[key]);
+        }
+      } else {
+        try {
+          const suggestion = await Homey.api('GET', '/suggest');
+          for (const role of ALL_ROLES) {
+            for (const item of (suggestion && suggestion.roles && suggestion.roles[role]) || []) addSource(role, item);
+          }
+          autoMode = sources.size > 0;
+        } catch (err) {
+          console.error('HousePulse: could not get suggested devices', err);
+        }
+      }
+
+      // Homey's clock minus this device's clock, so staleness works even if the
+      // dashboard runs on a phone with a slightly wrong clock.
+      let clockOffset = 0;
+      const homeyNow = () => Date.now() + clockOffset;
+
+      /* ---------------- Elements ---------------- */
+
+      const $ = (id) => document.getElementById(id);
+      const els = {
+        root: $('root'),
+        flow: $('flow'),
+        message: $('message'),
+        messageTitle: $('message-title'),
+        messageText: $('message-text'),
+        today: $('today'),
+        autoNote: $('auto-note'),
+        signHint: $('sign-hint'),
+        debug: $('debug'),
+        nodes: {},
+        conns: {},
+        todayItems: {},
+      };
+      for (const node of document.querySelectorAll('[data-node]')) {
+        const role = node.dataset.node;
+        els.nodes[role] = {
+          root: node,
+          value: node.querySelector('[data-value]'),
+          label: node.querySelector('[data-label]'),
+          status: node.querySelector('[data-status]'),
+          badge: node.querySelector('[data-badge]'),
+        };
+        els.nodes[role].label.textContent = t[role];
+      }
+      for (const conn of document.querySelectorAll('[data-conn]')) {
+        els.conns[conn.dataset.conn] = conn;
+      }
+      const todayLabels = {
+        solar: t.todaySolar, import: t.todayImport, export: t.todayExport, ev: t.todayEv, self: t.selfSufficiency,
+      };
+      for (const item of document.querySelectorAll('[data-today]')) {
+        const key = item.dataset.today;
+        els.todayItems[key] = { root: item, value: item.querySelector('[data-value]') };
+        item.querySelector('[data-label]').textContent = todayLabels[key];
+      }
+      els.today.querySelector('[data-today-title]').textContent = t.today;
+
+      function showMessage(title, text) {
+        els.messageTitle.textContent = title;
+        els.messageText.textContent = text;
+        els.message.hidden = false;
+        els.flow.hidden = true;
+        els.today.hidden = true;
+        els.autoNote.hidden = true;
+        els.signHint.hidden = true;
+      }
+
+      function showFlow() {
+        els.message.hidden = true;
+        els.flow.hidden = false;
+        els.autoNote.hidden = !autoMode;
+        if (autoMode) {
+          els.autoNote.textContent = t.autoNote;
+          els.autoNote.title = [...sources.values()].map((s) => s.name).filter(Boolean).join(' · ');
+        }
+      }
+
+      /* ---------------- Calculations ---------------- */
+
+      // Normalised sign per role: grid +import/-export, battery +charging/-discharging,
+      // solar/ev/home always positive.
+      function normalise(role, watts) {
+        if (role === 'grid') return invert.grid ? -watts : watts;
+        if (role === 'battery') return invert.battery ? -watts : watts;
+        return Math.abs(watts);
+      }
+
+      function isStale(d, now) {
+        return staleMs > 0
+          && d.powerTs !== null
+          && now - d.powerTs > staleMs
+          && Math.abs(d.power) >= IDLE_THRESHOLD_W;
+      }
+
+      // Aggregate the devices of a role into one view.
+      function roleInfo(role, now) {
+        const list = roleIds[role].map((id) => sources.get(id));
+        const live = list.filter((d) => !d.missing && d.available);
+        const powered = live.filter((d) => d.hasPower && d.power !== null);
+        const fresh = powered.filter((d) => !isStale(d, now));
+        const stale = powered.filter((d) => isStale(d, now));
+        const socs = live.filter((d) => d.hasSoc && d.soc !== null).map((d) => d.soc);
+
+        return {
+          configured: list.length > 0,
+          allMissing: list.length > 0 && list.every((d) => d.missing),
+          allOffline: list.length > 0 && live.length === 0 && !list.every((d) => d.missing),
+          hasPower: list.some((d) => d.hasPower),
+          power: fresh.length ? sum(fresh.map((d) => normalise(role, d.power))) : null,
+          // Only "stale" when nothing fresh is left to show.
+          staleSince: fresh.length === 0 && stale.length ? Math.min(...stale.map((d) => d.powerTs)) : null,
+          soc: socs.length ? sum(socs) / socs.length : null,
+          names: list.map((d) => d.name).filter(Boolean),
+        };
+      }
+
+      function statusFor(role, info, watts) {
+        if (!info.configured) return t.notSet;
+        if (info.allMissing) return t.missing;
+        if (info.allOffline) return t.offline;
+        if (info.staleSince !== null) return t.lastSeen.replace('{time}', formatTime(info.staleSince));
+        if (watts === null || Math.abs(watts) < IDLE_THRESHOLD_W) return t.idle;
+        switch (role) {
+          case 'grid': return watts > 0 ? t.import : t.export;
+          case 'solar': return t.producing;
+          case 'ev': return t.charging;
+          case 'battery': return watts > 0 ? t.charging : t.discharging;
+          default: return '';
+        }
+      }
+
+      // true = energy moving toward Home, false = away from Home, null = no flow
+      function towardHome(role, watts) {
+        if (watts === null || Math.abs(watts) < IDLE_THRESHOLD_W) return null;
+        switch (role) {
+          case 'grid': return watts > 0;
+          case 'solar': return true;
+          case 'battery': return watts < 0;
+          case 'ev': return false;
+          default: return null;
+        }
+      }
+
+      // Today's kWh for a role, as { in, out, approximate } (null if no data yet).
+      function roleToday(role) {
+        const list = roleIds[role].map((id) => sources.get(id)).filter((d) => !d.missing && d.today);
+        if (!list.length) return null;
+        const flip = (role === 'grid' && invert.grid) || (role === 'battery' && invert.battery);
+        let inKwh = 0;
+        let outKwh = 0;
+        let approximate = false;
+        for (const d of list) {
+          inKwh += flip ? d.today.outKwh : d.today.inKwh;
+          outKwh += flip ? d.today.inKwh : d.today.outKwh;
+          // "≈" only when an estimated (integrated) direction actually contributed energy.
+          if ((d.today.inSource === 'integrated' && d.today.inKwh >= 0.005)
+            || (d.today.outSource === 'integrated' && d.today.outKwh >= 0.005)) approximate = true;
+        }
+        return { in: inKwh, out: outKwh, approximate };
+      }
+
+      /* ---------------- Rendering ---------------- */
+
+      const warnings = [];
+
+      function renderNode(role, info, watts) {
+        const node = els.nodes[role];
+
+        node.root.classList.toggle('is-unset', !info.configured);
+        node.root.classList.toggle('is-missing', info.allMissing);
+        node.root.classList.toggle('is-offline', info.allOffline);
+        node.root.classList.toggle('is-stale', info.staleSince !== null);
+        node.root.classList.toggle('is-active', watts !== null && Math.abs(watts) >= IDLE_THRESHOLD_W);
+
+        node.value.textContent = info.configured && info.hasPower ? formatPower(watts) : '—';
+        node.status.textContent = statusFor(role, info, watts);
+
+        // State-of-charge ring and badge. The EV node uses the car's SoC when a car is selected.
+        let soc = info.soc;
+        const names = [...info.names];
+        if (role === 'ev') {
+          const car = roleInfo('car', homeyNow());
+          if (car.soc !== null) soc = car.soc;
+          names.push(...car.names);
+        }
+        if (soc !== null) soc = Math.max(0, Math.min(100, soc));
+
+        node.root.classList.toggle('has-soc', soc !== null);
+        node.root.classList.toggle('is-low', soc !== null && soc < LOW_SOC_PERCENT);
+        if (soc !== null) {
+          node.root.style.setProperty('--soc', soc.toFixed(1));
+          node.badge.textContent = `${Math.round(soc)} %`;
+          node.badge.hidden = false;
+          // Battery with SoC but no power capability: show SoC as the main value.
+          if (!info.hasPower) node.value.textContent = `${Math.round(soc)} %`;
+        } else {
+          node.badge.hidden = true;
+        }
+        node.root.title = names.join(' · ');
+      }
+
+      function renderConnector(role, info, watts) {
+        const conn = els.conns[role];
+        const direction = info.allOffline || info.allMissing ? null : towardHome(role, watts);
+
+        conn.classList.toggle('is-hidden', !info.configured);
+        conn.classList.toggle('is-active', direction !== null);
+        if (direction === null) {
+          conn.style.removeProperty('--flow-weight');
+          return;
+        }
+        const forward = conn.dataset.in === 'forward';
+        conn.style.setProperty('--flow-direction', direction === forward ? 'normal' : 'reverse');
+        conn.style.setProperty('--flow-duration', `${flowDuration(watts).toFixed(2)}s`);
+        conn.style.setProperty('--flow-weight', `${flowWeight(watts).toFixed(1)}px`);
+      }
+
+      // Returns the home consumption in W (or null).
+      function renderHome(powers, now) {
+        const node = els.nodes.home;
+        const meter = roleInfo('home', now);
+        let home = null;
+        let status = '';
+
+        if (meter.configured) {
+          // Measured by a dedicated meter
+          home = meter.power;
+          status = meter.allMissing ? t.missing
+            : meter.allOffline ? t.offline
+              : meter.staleSince !== null ? t.lastSeen.replace('{time}', formatTime(meter.staleSince))
+                : t.consumption;
+          node.root.classList.toggle('is-missing', meter.allMissing);
+          node.root.classList.toggle('is-offline', meter.allOffline);
+          node.root.classList.toggle('is-stale', meter.staleSince !== null);
+          node.root.title = meter.names.join(' · ');
+        } else if (powers.grid !== null) {
+          // Calculated: what comes in (grid import + solar + battery discharge) minus what goes
+          // to the battery and the EV charger.
+          const raw = powers.grid + (powers.solar || 0) - (powers.battery || 0) - (powers.ev || 0);
+          if (raw < HOME_CALC_WARNING_W) {
+            warnings.push(`Home calc is ${Math.round(raw)} W (<0): check the sign of grid/battery or invert settings`);
+          }
+          trackNegativeHome(raw, powers, now);
+          home = Math.max(0, raw);
+          status = t.estimated;
+        } else {
+          trackNegativeHome(null, powers, now);
+        }
+
+        node.value.textContent = formatPower(home);
+        node.status.textContent = status;
+        node.root.classList.toggle('is-active', home !== null && home >= IDLE_THRESHOLD_W);
+        return home;
+      }
+
+      // A calculated home consumption that stays negative almost always means a sign is the
+      // wrong way round. Meters report at different moments, so only react when it persists.
+      let negativeSince = null;
+      function trackNegativeHome(raw, powers, now) {
+        if (raw === null || raw >= HOME_CALC_WARNING_W) {
+          negativeSince = null;
+          els.signHint.hidden = true;
+          return;
+        }
+        if (negativeSince === null) negativeSince = now;
+        if (now - negativeSince < SIGN_HINT_AFTER_MS) return;
+
+        // Which single setting would make it plausible?
+        const fixedByGrid = raw - 2 * powers.grid >= HOME_CALC_WARNING_W;
+        const fixedByBattery = powers.battery !== null && Math.abs(powers.battery) >= IDLE_THRESHOLD_W
+          && raw + 2 * powers.battery >= HOME_CALC_WARNING_W;
+        els.signHint.textContent = fixedByGrid && !fixedByBattery ? t.signHintGrid
+          : fixedByBattery && !fixedByGrid ? t.signHintBattery
+            : t.signHint;
+        els.signHint.hidden = false;
+      }
+
+      function setTodayItem(key, text) {
+        const item = els.todayItems[key];
+        item.root.hidden = text === null;
+        if (text !== null) item.value.textContent = text;
+      }
+
+      function renderToday(powers, home) {
+        if (!showToday) {
+          els.today.hidden = true;
+          return;
+        }
+
+        const grid = roleToday('grid');
+        const solar = roleToday('solar');
+        const ev = roleToday('ev');
+        const battery = roleToday('battery');
+
+        setTodayItem('solar', solar ? formatKwh(solar.in + solar.out, solar.approximate) : null);
+        setTodayItem('import', grid ? formatKwh(grid.in, grid.approximate) : null);
+        setTodayItem('export', grid && grid.out >= 0.05 ? formatKwh(grid.out, grid.approximate) : null);
+        setTodayItem('ev', ev ? formatKwh(ev.in + ev.out, ev.approximate) : null);
+
+        // Self-sufficiency: share of consumption not covered by grid import.
+        const parts = [];
+        if (powers.grid !== null && home !== null) {
+          const consumption = home + (powers.ev || 0) + Math.max(0, powers.battery || 0);
+          if (consumption >= IDLE_THRESHOLD_W) {
+            const share = 1 - Math.max(0, powers.grid) / consumption;
+            parts.push(`${Math.round(Math.max(0, Math.min(1, share)) * 100)} % ${t.now}`);
+          }
+        }
+        if (grid && solar) {
+          const consumption = grid.in + (solar.in + solar.out) - grid.out
+            + (battery ? battery.out - battery.in : 0);
+          if (consumption >= 0.1) {
+            const share = 1 - grid.in / consumption;
+            parts.push(`${Math.round(Math.max(0, Math.min(1, share)) * 100)} % ${t.todayShort}`);
+          }
+        }
+        setTodayItem('self', parts.length ? parts.join(' · ') : null);
+
+        els.today.hidden = Object.values(els.todayItems).every((item) => item.root.hidden);
+      }
+
+      function render() {
+        if (sources.size === 0) {
+          showMessage(t.configureTitle, t.configureText);
+          return;
+        }
+        showFlow();
+
+        const now = homeyNow();
+        warnings.length = 0;
+        const powers = {};
+        for (const role of NODE_ROLES) {
+          const info = roleInfo(role, now);
+          powers[role] = info.power;
+          renderNode(role, info, info.power);
+          renderConnector(role, info, info.power);
+        }
+        const home = renderHome(powers, now);
+        renderToday(powers, home);
+        renderDebug();
+      }
+
+      let renderQueued = false;
+      function scheduleRender() {
+        if (renderQueued) return;
+        renderQueued = true;
+        requestAnimationFrame(() => {
+          renderQueued = false;
+          render();
+        });
+      }
+
+      function applySnapshot(list) {
+        const seen = new Set();
+        for (const snap of list || []) {
+          const d = sources.get(snap.id);
+          if (!d) continue;
+          seen.add(snap.id);
+          if (snap.missing) {
+            d.missing = true;
+            continue;
+          }
+          d.missing = false;
+          d.available = snap.available !== false;
+          d.name = snap.name || d.name;
+          d.powerCap = snap.power ? snap.power.capability : null;
+          d.socCap = snap.soc ? snap.soc.capability : null;
+          d.hasPower = Boolean(d.powerCap);
+          d.hasSoc = Boolean(d.socCap);
+          d.power = d.hasPower ? toNumber(snap.power.value) : null;
+          d.powerTs = d.hasPower ? (snap.power.ts ?? null) : null;
+          d.soc = d.hasSoc ? toNumber(snap.soc.value) : null;
+          d.today = snap.today || null;
+        }
+        for (const [id, d] of sources) {
+          if (!seen.has(id)) d.missing = true;
+        }
+      }
+
+      /* ---------------- Debug (only when the backend says debug: true) ---------------- */
+
+      const debugInfo = {
+        enabled: false, events: 0, lastEvent: null, lastSubscribe: null, errors: 0,
+      };
+      const clock = (ts) => (ts ? new Date(ts).toLocaleTimeString() : '–');
+      function debugLog(...args) {
+        if (debugInfo.enabled) console.log('[HousePulse DEBUG]', ...args);
+      }
+      function renderDebug() {
+        if (!debugInfo.enabled) return;
+        const lines = [
+          `DEBUG · ${instanceId} · ${autoMode ? 'AUTO' : 'manual'} · events ${debugInfo.events}`
+            + ` · last ${clock(debugInfo.lastEvent)} · sub ${clock(debugInfo.lastSubscribe)}`
+            + ` · err ${debugInfo.errors} · clock offset ${clockOffset} ms`,
+        ];
+        for (const role of ALL_ROLES) {
+          for (const id of roleIds[role]) {
+            const d = sources.get(id);
+            const age = d.powerTs ? `${Math.round((homeyNow() - d.powerTs) / 1000)}s` : '–';
+            const today = d.today
+              ? ` today in=${d.today.inKwh.toFixed(2)}(${d.today.inSource[0]}) out=${d.today.outKwh.toFixed(2)}(${d.today.outSource[0]})`
+              : '';
+            const state = d.missing ? ' MISSING' : !d.available ? ' OFFLINE' : '';
+            const capInfo = [d.powerCap, d.socCap].filter(Boolean).join('+') || '-';
+            lines.push(`${role}: ${d.name || id} [${capInfo}]${state} ${d.power ?? '–'}W age ${age}`
+              + `${d.hasSoc ? ` ${d.soc ?? '–'}%` : ''}${today}`);
+          }
+        }
+        for (const warning of warnings) lines.push(`⚠ ${warning}`);
+        els.debug.textContent = lines.join('\n');
+      }
+
+      /* ---------------- Live updates from app.js ---------------- */
+
+      // Updates arrive per device + capability; route them to every source reading that capability.
+      Homey.on('energy_update', (data) => {
+        if (!data) return;
+        const value = toNumber(data.value);
+        let matched = false;
+        for (const sourceId of deviceSources.get(data.deviceId) || []) {
+          const d = sources.get(sourceId);
+          let hit = false;
+          if (d.powerCap === data.capability) {
+            d.power = value;
+            d.powerTs = toNumber(data.ts) ?? homeyNow();
+            hit = true;
+          }
+          if (d.socCap === data.capability) {
+            d.soc = value;
+            hit = true;
+          }
+          if (hit) {
+            d.missing = false;
+            matched = true;
+          }
+        }
+        if (!matched) return;
+        if (debugInfo.enabled) {
+          debugInfo.events++;
+          debugInfo.lastEvent = Date.now();
+          debugLog('update', data.deviceId, data.capability, data.value);
+        }
+        scheduleRender();
+      });
+
+      Homey.on('energy_status', (data) => {
+        if (!data) return;
+        for (const sourceId of deviceSources.get(data.deviceId) || []) {
+          const d = sources.get(sourceId);
+          d.available = data.available !== false;
+          d.missing = data.missing === true;
+        }
+        debugLog('status', data);
+        scheduleRender();
+      });
+
+      Homey.on('energy_today', (data) => {
+        const d = data && sources.get(data.sourceId);
+        if (!d) return;
+        d.today = data;
+        debugLog('today', d.name, data);
+        scheduleRender();
+      });
+
+      /* ---------------- Auto height ---------------- */
+
+      let reportedHeight = 0;
+      function measureHeight() {
+        return Math.ceil(els.root.getBoundingClientRect().height);
+      }
+      function updateHeight() {
+        const height = measureHeight();
+        if (height <= 0 || Math.abs(height - reportedHeight) < 2) return;
+        reportedHeight = height;
+        if (typeof Homey.setHeight === 'function') Homey.setHeight(height);
+      }
+      if (typeof ResizeObserver === 'function') {
+        // Fires when the column width changes, rows appear/disappear or the state switches.
+        new ResizeObserver(() => requestAnimationFrame(updateHeight)).observe(els.root);
+      }
+
+      /* ---------------- Subscribe ---------------- */
+
+      let instanceId = null;
+      try {
+        if (typeof Homey.getWidgetInstanceId === 'function') instanceId = Homey.getWidgetInstanceId();
+      } catch (err) { /* fall through */ }
+      if (!instanceId) instanceId = `w-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+
+      let hasLoaded = false;
+      async function subscribe() {
+        if (sources.size === 0) return;
+        try {
+          const sentAt = Date.now();
+          const result = await Homey.api('POST', '/subscribe', {
+            instanceId,
+            sourceIds: [...sources.keys()],
+          });
+          const receivedAt = Date.now();
+          if (result && typeof result.serverTime === 'number') {
+            clockOffset = Math.round(result.serverTime - (sentAt + receivedAt) / 2);
+          }
+          applySnapshot(result && result.sources);
+          hasLoaded = true;
+
+          debugInfo.enabled = Boolean(result && result.debug);
+          els.debug.hidden = !debugInfo.enabled;
+          if (debugInfo.enabled) {
+            debugInfo.lastSubscribe = Date.now();
+            debugLog('subscribe ok', { instanceId, settings, snapshot: result.sources });
+          }
+
+          render();
+          updateHeight();
+        } catch (err) {
+          debugInfo.errors++;
+          renderDebug();
+          console.error('HousePulse: subscribe failed', err);
+          if (!hasLoaded) showMessage(t.errorTitle, t.errorText);
+        }
+      }
+
+      render();
+      reportedHeight = measureHeight();
+      Homey.ready({ height: reportedHeight || undefined });
+
+      await subscribe();
+      // Keep the backend subscription alive, and retry if the first attempt failed.
+      setInterval(subscribe, RESUBSCRIBE_INTERVAL_MS);
+      // Re-evaluate "old value" markers even when nothing new arrives.
+      setInterval(render, STALE_CHECK_INTERVAL_MS);
+    }
+  </script>
+</body>
+</html>

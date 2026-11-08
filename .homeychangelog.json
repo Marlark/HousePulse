@@ -1,0 +1,10 @@
+{
+  "1.0.0": {
+    "en": "First release: live energy flow widget for grid, solar, EV charger and home battery, with today's totals and self-sufficiency.",
+    "sv": "Första versionen: widget med live-energiflöde för nät, solceller, laddbox och hembatteri, med dagens summor och självförsörjning.",
+    "no": "Første versjon: widget med live energiflyt for nett, solceller, elbillader og hjemmebatteri, med dagens summer og selvforsyning.",
+    "da": "Første version: widget med live energiflow for net, solceller, elbillader og hjemmebatteri, med dagens summer og selvforsyning.",
+    "de": "Erste Version: Live-Energiefluss-Widget für Netz, Solar, Wallbox und Heimspeicher, mit heutigen Summen und Autarkie.",
+    "nl": "Eerste versie: live energiestroom-widget voor net, zonnepanelen, laadpaal en thuisbatterij, met totalen van vandaag en zelfvoorziening."
+  }
+}
