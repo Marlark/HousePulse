@@ -1,10 +1,10 @@
 {
   "1.0.0": {
-    "en": "First release: live energy flow widget for grid, solar, EV charger and home battery, with today's totals and self-sufficiency.",
-    "sv": "Första versionen: widget med live-energiflöde för nät, solceller, laddbox och hembatteri, med dagens summor och självförsörjning.",
-    "no": "Første versjon: widget med live energiflyt for nett, solceller, elbillader og hjemmebatteri, med dagens summer og selvforsyning.",
-    "da": "Første version: widget med live energiflow for net, solceller, elbillader og hjemmebatteri, med dagens summer og selvforsyning.",
-    "de": "Erste Version: Live-Energiefluss-Widget für Netz, Solar, Wallbox und Heimspeicher, mit heutigen Summen und Autarkie.",
-    "nl": "Eerste versie: live energiestroom-widget voor net, zonnepanelen, laadpaal en thuisbatterij, met totalen van vandaag en zelfvoorziening."
+    "en": "First release: live energy flow dashboard widget for grid, solar, EV charger, home battery and an extra consumer. Today's kWh, self-sufficiency, solar self-use and how much of the EV and battery charging came from solar. Sets itself up from your devices, and can wait for your energy apps at startup.",
+    "sv": "Första versionen: dashboard-widget med live-energiflöde för nät, solceller, laddbox, hembatteri och en extra förbrukare. Dagens kWh, självförsörjning, egenanvändning av solel och hur mycket av bilens och batteriets laddning som kom från solen. Ställer in sig själv utifrån dina enheter och kan vänta på dina energiappar vid start.",
+    "no": "Første versjon: dashboard-widget med live energiflyt for nett, solceller, elbillader, hjemmebatteri og en ekstra forbruker. Dagens kWh, selvforsyning, egenforbruk av solstrøm og hvor mye av lading av bil og batteri som kom fra solen. Setter seg opp selv ut fra enhetene dine, og kan vente på energiappene dine ved oppstart.",
+    "da": "Første version: dashboard-widget med live energiflow for net, solceller, elbillader, hjemmebatteri og en ekstra forbruger. Dagens kWh, selvforsyning, egetforbrug af solstrøm og hvor meget af opladningen af bil og batteri der kom fra solen. Sætter sig selv op ud fra dine enheder og kan vente på dine energiapps ved opstart.",
+    "de": "Erste Version: Dashboard-Widget mit Live-Energiefluss für Netz, Solar, Wallbox, Heimspeicher und einen zusätzlichen Verbraucher. Heutige kWh, Autarkie, Solar-Eigenverbrauch und wie viel der Auto- und Batterieladung aus Solarstrom kam. Richtet sich anhand deiner Geräte selbst ein und kann beim Start auf deine Energie-Apps warten.",
+    "nl": "Eerste versie: dashboardwidget met live energiestroom voor net, zonnepanelen, laadpaal, thuisbatterij en een extra verbruiker. kWh van vandaag, zelfvoorziening, eigen verbruik van zonnestroom en hoeveel van het laden van auto en batterij van de zon kwam. Stelt zichzelf in op basis van je apparaten en kan bij het opstarten op je energie-apps wachten."
   }
 }
