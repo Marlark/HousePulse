@@ -124,7 +124,7 @@ async function createApp({
   const timeouts = new Map(); // id -> fn; run with runTimeouts()
   let nextTimeout = 1;
   const homey = {
-    manifest: { id: 'com.housepulse.energy', version: '1.0.0' },
+    manifest: { id: 'io.github.marlark.housepulse', version: '1.0.0' },
     version: '12.2.0',
     platform: 'local',
     platformVersion: 2,

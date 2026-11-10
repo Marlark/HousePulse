@@ -1,5 +1,5 @@
 {
-  "name": "com.housepulse.energy",
+  "name": "io.github.marlark.housepulse",
   "version": "1.0.0",
   "description": "Homey Dashboard widget showing live power flows between grid, solar, EV charger and home battery.",
   "license": "MIT",

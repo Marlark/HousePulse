@@ -416,7 +416,7 @@ test('settings: lists other apps, the ones with widget devices first, and saves 
   const plug = new FakeDevice({ id: 'plug', name: 'Plug', capabilities: { measure_power: 5 }, driverId: 'homey:app:com.plug:socket' });
   const siren = new FakeDevice({ id: 'siren', name: 'Siren', capabilities: { onoff: false }, driverId: 'homey:app:com.alarm:siren' });
   const apps = {
-    'com.housepulse.energy': { id: 'com.housepulse.energy', name: 'HousePulse', state: 'running' },
+    'io.github.marlark.housepulse': { id: 'io.github.marlark.housepulse', name: 'HousePulse', state: 'running' },
     'com.alarm': { id: 'com.alarm', name: 'Alarm', state: 'running', enabled: true },
     'com.solar': { id: 'com.solar', name: 'Solar', state: 'running', enabled: true },
     'com.old': { id: 'com.old', name: 'Old', state: 'stopped', enabled: false },
@@ -435,7 +435,7 @@ test('settings: lists other apps, the ones with widget devices first, and saves 
   assert.deepStrictEqual(overview.waitFor, []);
   assert.strictEqual(overview.startup.state, 'ready');
 
-  assert.deepStrictEqual(app.setWaitForApps(['com.solar', 'com.solar', 'com.housepulse.energy', 7]), ['com.solar']);
+  assert.deepStrictEqual(app.setWaitForApps(['com.solar', 'com.solar', 'io.github.marlark.housepulse', 7]), ['com.solar']);
   assert.deepStrictEqual(store.waitForApps, ['com.solar']);
   assert.deepStrictEqual((await app.getAppsOverview()).waitFor, ['com.solar']);
 });

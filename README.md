@@ -4,7 +4,7 @@ See how electricity flows through your home, live on your Homey dashboard: grid,
 
 ![HousePulse for Homey](assets/images/xlarge.png)
 
-**App ID:** `com.housepulse.energy` · **SDK:** Homey Apps SDK v3 · **Homey:** Homey Pro, firmware ≥ 12.1.0 · **License:** MIT · **Languages:** English, Svenska, Norsk, Dansk, Deutsch, Nederlands
+**App ID:** `io.github.marlark.housepulse` · **SDK:** Homey Apps SDK v3 · **Homey:** Homey Pro, firmware ≥ 12.1.0 · **License:** MIT · **Languages:** English, Svenska, Norsk, Dansk, Deutsch, Nederlands
 
 ---
 

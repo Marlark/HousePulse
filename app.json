@@ -39,6 +39,12 @@
     "name": "Ted Dÿring",
     "email": "teddyhq@hotmail.com"
   },
+  "homepage": "https://github.com/Marlark/housepulse",
+  "support": "https://github.com/Marlark/housepulse/issues",
+  "bugs": {
+    "url": "https://github.com/Marlark/housepulse/issues"
+  },
+  "source": "https://github.com/Marlark/housepulse",
   "api": {
     "getDiagnostics": {
       "method": "GET",
