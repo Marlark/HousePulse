@@ -283,12 +283,12 @@ test('"charged from solar" is counted for the widget\'s roles and pushed', async
   devices.grid.report('measure_power', -1000);
   devices.sun.report('measure_power', 5000);
   devices.ev.report('measure_power', 3000);
-  const later = Date.now() + 10 * 60 * 1000;
+  const later = Date.now() + 9 * 60 * 1000; // within the 10-minute gap limit
   app.updateSplit(later);
   app.emitSplits(later);
   const pushed = events(realtime, 'energy_split').at(-1);
   assert.strictEqual(pushed.key, result.split.key);
-  assert.ok(Math.abs(pushed.evKwh - 0.5) < 0.01, pushed.evKwh);
+  assert.ok(Math.abs(pushed.evKwh - 0.45) < 0.01, String(pushed.evKwh));
   assert.ok(Math.abs(pushed.evSolarKwh - pushed.evKwh) < 1e-9, 'exporting: all solar');
 
   const again = await app.subscribeWidget({ instanceId: 'w2', sourceIds: ['grid', 'sun'], split: { grid: ['grid'], solar: ['sun'] } });
