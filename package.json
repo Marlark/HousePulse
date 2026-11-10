@@ -2,10 +2,11 @@
   "name": "com.housepulse.energy",
   "version": "1.0.0",
   "description": "Homey Dashboard widget showing live power flows between grid, solar, EV charger and home battery.",
+  "license": "MIT",
   "main": "app.js",
   "private": true,
   "scripts": {
-    "test": "node --test test/",
+    "test": "node --test \"test/**/*.test.js\"",
     "validate": "homey app validate --level publish",
     "start": "homey app run --remote"
   },
@@ -14,5 +15,8 @@
   },
   "dependencies": {
     "homey-api": "^3.21.2"
+  },
+  "devDependencies": {
+    "jsdom": "^31.0.0"
   }
 }

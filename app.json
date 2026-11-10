@@ -8,7 +8,11 @@
   ],
   "name": {
     "en": "HousePulse",
-    "sv": "HousePulse"
+    "sv": "HousePulse",
+    "no": "HousePulse",
+    "da": "HousePulse",
+    "de": "HousePulse",
+    "nl": "HousePulse"
   },
   "description": {
     "en": "See how power flows between grid, solar, EV charger and home battery at a glance.",
@@ -32,8 +36,22 @@
   },
   "icon": "/assets/icon.svg",
   "author": {
-    "name": "Teddy",
+    "name": "Ted Dÿring",
     "email": "teddyhq@hotmail.com"
+  },
+  "api": {
+    "getDiagnostics": {
+      "method": "GET",
+      "path": "/diagnostics"
+    },
+    "getApps": {
+      "method": "GET",
+      "path": "/apps"
+    },
+    "setWaitForApps": {
+      "method": "PUT",
+      "path": "/wait-for-apps"
+    }
   },
   "widgets": {
     "energy_flow_dash": {
@@ -254,6 +272,106 @@
             "de": "Ein Gerät, das den Verbrauch des Hauses misst. Ohne es wird der Verbrauch aus den anderen Geräten berechnet.",
             "nl": "Een apparaat dat het eigen verbruik van het huis meet. Zonder wordt het verbruik berekend uit de andere apparaten."
           }
+        },
+        {
+          "id": "extra_device",
+          "type": "autocomplete",
+          "title": {
+            "en": "Extra consumer (optional)",
+            "sv": "Extra förbrukare (valfri)",
+            "no": "Ekstra forbruker (valgfri)",
+            "da": "Ekstra forbruger (valgfri)",
+            "de": "Zusätzlicher Verbraucher (optional)",
+            "nl": "Extra verbruiker (optioneel)"
+          },
+          "hint": {
+            "en": "A big consumer shown as its own node, e.g. a heat pump, sauna or pool. Its power is subtracted from Home, which then shows the rest of the house.",
+            "sv": "En stor förbrukare som visas som egen nod, t.ex. värmepump, bastu eller pool. Effekten dras från Hem, som då visar resten av huset.",
+            "no": "En stor forbruker som vises som egen node, f.eks. varmepumpe, badstue eller basseng. Effekten trekkes fra Hjem, som da viser resten av huset.",
+            "da": "En stor forbruger, der vises som sin egen node, f.eks. varmepumpe, sauna eller pool. Effekten trækkes fra Hjem, som så viser resten af huset.",
+            "de": "Ein großer Verbraucher als eigener Knoten, z. B. Wärmepumpe, Sauna oder Pool. Seine Leistung wird vom Haus abgezogen, das dann den Rest des Hauses zeigt.",
+            "nl": "Een grote verbruiker als eigen knooppunt, bijv. warmtepomp, sauna of zwembad. Het vermogen wordt van Huis afgetrokken, dat dan de rest van het huis toont."
+          }
+        },
+        {
+          "id": "extra_type",
+          "type": "dropdown",
+          "title": {
+            "en": "Type of extra consumer",
+            "sv": "Typ av extra förbrukare",
+            "no": "Type ekstra forbruker",
+            "da": "Type ekstra forbruger",
+            "de": "Art des zusätzlichen Verbrauchers",
+            "nl": "Soort extra verbruiker"
+          },
+          "value": "heatpump",
+          "values": [
+            {
+              "id": "heatpump",
+              "title": {
+                "en": "Heat pump",
+                "sv": "Värmepump",
+                "no": "Varmepumpe",
+                "da": "Varmepumpe",
+                "de": "Wärmepumpe",
+                "nl": "Warmtepomp"
+              }
+            },
+            {
+              "id": "sauna",
+              "title": {
+                "en": "Sauna",
+                "sv": "Bastu",
+                "no": "Badstue",
+                "da": "Sauna",
+                "de": "Sauna",
+                "nl": "Sauna"
+              }
+            },
+            {
+              "id": "pool",
+              "title": {
+                "en": "Pool",
+                "sv": "Pool",
+                "no": "Basseng",
+                "da": "Pool",
+                "de": "Pool",
+                "nl": "Zwembad"
+              }
+            },
+            {
+              "id": "other",
+              "title": {
+                "en": "Other",
+                "sv": "Övrigt",
+                "no": "Annet",
+                "da": "Andet",
+                "de": "Sonstiges",
+                "nl": "Overig"
+              }
+            }
+          ]
+        },
+        {
+          "id": "extra_name",
+          "type": "text",
+          "title": {
+            "en": "Name of the extra consumer (optional)",
+            "sv": "Namn på extra förbrukare (valfri)",
+            "no": "Navn på ekstra forbruker (valgfri)",
+            "da": "Navn på ekstra forbruger (valgfri)",
+            "de": "Name des zusätzlichen Verbrauchers (optional)",
+            "nl": "Naam van de extra verbruiker (optioneel)"
+          },
+          "hint": {
+            "en": "Leave empty to use the type as the name.",
+            "sv": "Lämna tomt för att använda typen som namn.",
+            "no": "La stå tomt for å bruke typen som navn.",
+            "da": "Lad stå tomt for at bruge typen som navn.",
+            "de": "Leer lassen, um die Art als Namen zu verwenden.",
+            "nl": "Laat leeg om de soort als naam te gebruiken."
+          },
+          "value": ""
         },
         {
           "id": "stale_minutes",

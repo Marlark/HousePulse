@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="css/style.css">
 </head>
-<body class="homey-widget">
+<!-- homey-widget-full: no Homey padding; the widget has its own spacing (and auto height measures it) -->
+<body class="homey-widget-full">
 <main id="root">
 
   <!-- Shown when no device is configured, or when loading fails -->
@@ -33,6 +34,11 @@
       <span class="conn__dot"></span><span class="conn__dot"></span><span class="conn__dot"></span>
     </div>
     <div class="conn conn--v" data-conn="ev" data-in="reverse" style="grid-area: c-ev">
+      <span class="conn__line"></span>
+      <span class="conn__dot"></span><span class="conn__dot"></span><span class="conn__dot"></span>
+    </div>
+    <!-- Diagonal Home → extra consumer: a horizontal connector, rotated and placed in JS -->
+    <div class="conn conn--h conn--d" data-conn="extra" data-in="reverse">
       <span class="conn__line"></span>
       <span class="conn__dot"></span><span class="conn__dot"></span><span class="conn__dot"></span>
     </div>
@@ -112,9 +118,34 @@
       <span class="node__status" data-status></span>
     </div>
 
+    <div class="node node--extra" data-node="extra" style="grid-area: extra" hidden>
+      <div class="node__ring">
+        <div class="node__face">
+          <svg class="node__icon" data-extra-icon="heatpump" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="5" width="18" height="14" rx="2"/>
+            <circle cx="10" cy="12" r="4"/>
+            <path d="M10 8v8M6 12h8M17 9v6"/>
+          </svg>
+          <svg class="node__icon" data-extra-icon="sauna" viewBox="0 0 24 24" aria-hidden="true" hidden>
+            <path d="M4 20h16M6 20v-4h12v4M9 4c-1 2 1 3 0 5M12 4c-1 2 1 3 0 5M15 4c-1 2 1 3 0 5"/>
+          </svg>
+          <svg class="node__icon" data-extra-icon="pool" viewBox="0 0 24 24" aria-hidden="true" hidden>
+            <path d="M3 17c2 0 2-1.5 4.5-1.5S10 17 12 17s2-1.5 4.5-1.5S19 17 21 17M3 21c2 0 2-1.5 4.5-1.5S10 21 12 21s2-1.5 4.5-1.5S19 21 21 21M8 14V6a2 2 0 0 1 4 0M16 14V6a2 2 0 0 0-4 0M8 10h8"/>
+          </svg>
+          <svg class="node__icon" data-extra-icon="other" viewBox="0 0 24 24" aria-hidden="true" hidden>
+            <path d="M9 3v5M15 3v5M7 8h10v4a5 5 0 0 1-10 0V8zM12 17v4"/>
+          </svg>
+          <span class="node__value" data-value>—</span>
+        </div>
+      </div>
+      <span class="node__badge" data-badge hidden></span>
+      <span class="node__label" data-label></span>
+      <span class="node__status" data-status></span>
+    </div>
+
   </div>
 
-  <!-- Today's totals (kWh) and self-sufficiency -->
+  <!-- Today's totals (kWh), self-sufficiency and solar self-consumption -->
   <div id="today" class="today" hidden>
     <span class="today__title" data-today-title></span>
     <span class="today__item today__item--solar" data-today="solar" hidden>
@@ -129,7 +160,16 @@
     <span class="today__item today__item--ev" data-today="ev" hidden>
       <span class="today__dot"></span><span data-label></span> <b data-value></b>
     </span>
+    <span class="today__item today__item--battery" data-today="battery" hidden>
+      <span class="today__dot"></span><span data-label></span> <b data-value></b>
+    </span>
+    <span class="today__item today__item--extra" data-today="extra" hidden>
+      <span class="today__dot"></span><span data-label></span> <b data-value></b>
+    </span>
     <span class="today__item today__item--self" data-today="self" hidden>
+      <span class="today__dot"></span><span data-label></span> <b data-value></b>
+    </span>
+    <span class="today__item today__item--selfuse" data-today="selfUse" hidden>
       <span class="today__dot"></span><span data-label></span> <b data-value></b>
     </span>
   </div>
@@ -145,126 +185,158 @@
 
 </main>
 
+  <script src="js/flow-logic.js"></script>
   <script>
     'use strict';
 
-    // Roles with their own node in the flow
-    const NODE_ROLES = ['grid', 'solar', 'ev', 'battery'];
-    // Widget settings that feed each role. 'car' and 'home' have no node of their own:
-    // the car's SoC is shown on the EV charger, the home meter drives the centre node.
-    const ROLE_SETTINGS = {
-      grid: ['grid_device'],
-      solar: ['solar_device', 'solar_device_2'],
-      ev: ['ev_device', 'ev_device_2'],
-      battery: ['battery_device', 'battery_device_2'],
-      car: ['car_device'],
-      home: ['home_device'],
-    };
-    const ALL_ROLES = Object.keys(ROLE_SETTINGS);
-    // "— None —" entry in the device pickers (see NONE_ID in app.js): means no device.
-    const NONE_ID = '__none__';
+    const {
+      NODE_ROLES, ALL_ROLES, IDLE_THRESHOLD_W, HOME_CALC_WARNING_W, toNumber, flowDuration, flowWeight,
+    } = window.FlowLogic;
 
-    const IDLE_THRESHOLD_W = 10;
     const LOW_SOC_PERCENT = 20;
-    const HOME_CALC_WARNING_W = -100;
     const SIGN_HINT_AFTER_MS = 3 * 60 * 1000;
     const RESUBSCRIBE_INTERVAL_MS = 60 * 1000;
     const STALE_CHECK_INTERVAL_MS = 30 * 1000;
+    // Calls to the app can hang while it (or Homey) is starting: never wait on them forever.
+    const API_TIMEOUT_MS = 10 * 1000;
+    const SUGGEST_RETRY_MS = 15 * 1000;
+    // While the app waits for other apps at startup, ask again this often.
+    const STARTING_RETRY_MS = 5 * 1000;
+
+    function withTimeout(promise, ms) {
+      let timer;
+      return Promise.race([
+        promise,
+        new Promise((resolve, reject) => {
+          timer = setTimeout(() => reject(new Error(`Timed out after ${ms} ms`)), ms);
+        }),
+      ]).finally(() => clearTimeout(timer));
+    }
 
     // Languages follow Homey's language codes (en, sv, no, da, de, nl).
     const STRINGS = {
       en: {
+        searchingTitle: 'Looking for energy devices…',
+        waitingTitle: 'Waiting for apps…',
+        waitingText: 'HousePulse starts when these apps run: {apps}.',
+        searchingText: 'This can take a moment while Homey starts.',
         grid: 'Grid', solar: 'Solar', ev: 'EV charger', battery: 'Battery', home: 'Home',
         import: 'Import', export: 'Export', producing: 'Producing', charging: 'Charging',
         discharging: 'Discharging', idle: 'Idle', consumption: 'Consumption', estimated: 'Estimated',
+        consuming: 'Consuming', extra_heatpump: 'Heat pump', extra_sauna: 'Sauna', extra_pool: 'Pool', extra_other: 'Consumer',
         notSet: 'Not set', offline: 'Offline', missing: 'Device not found', lastSeen: 'Last {time}',
-        today: 'Today', todaySolar: 'Solar', todayImport: 'Bought', todayExport: 'Sold', todayEv: 'EV',
-        selfSufficiency: 'Self-sufficient', now: 'now', todayShort: 'today',
+        today: 'Today', todaySolar: 'Solar', todayImport: 'Bought', todayExport: 'Sold', todayEv: 'EV', todayBattery: 'Battery charged', fromSolar: 'solar',
+        selfSufficiency: 'Self-sufficient', selfConsumption: 'Solar self-use', now: 'now', todayShort: 'today',
         configureTitle: 'No devices selected',
         configureText: 'Please configure in settings: edit the widget and pick your Grid, Solar, EV charger, Car and Home battery devices.',
         errorTitle: 'Could not load devices',
         errorText: 'Retrying shortly…',
-        autoNote: 'Devices were picked automatically. Edit the widget to change them.',
+        autoNote: 'Devices you have not chosen are picked automatically. Edit the widget to change them.',
         signHint: 'Consumption comes out negative. Check the sign settings for grid and battery in the widget settings.',
         signHintGrid: 'Consumption comes out negative. Try "Invert grid sign" in the widget settings.',
         signHintBattery: 'Consumption comes out negative. Try "Invert battery sign" in the widget settings.',
       },
       sv: {
+        searchingTitle: 'Letar efter energienheter…',
+        waitingTitle: 'Väntar på appar…',
+        waitingText: 'HousePulse startar när de här apparna körs: {apps}.',
+        searchingText: 'Det kan ta en stund medan Homey startar.',
         grid: 'Nät', solar: 'Solceller', ev: 'Laddbox', battery: 'Hembatteri', home: 'Hem',
         import: 'Köper', export: 'Säljer', producing: 'Producerar', charging: 'Laddar',
         discharging: 'Urladdning', idle: 'Vila', consumption: 'Förbrukning', estimated: 'Beräknad',
+        consuming: 'Förbrukar', extra_heatpump: 'Värmepump', extra_sauna: 'Bastu', extra_pool: 'Pool', extra_other: 'Förbrukare',
         notSet: 'Ej vald', offline: 'Offline', missing: 'Enheten saknas', lastSeen: 'Senast {time}',
-        today: 'Idag', todaySolar: 'Sol', todayImport: 'Köpt', todayExport: 'Sålt', todayEv: 'Bil',
-        selfSufficiency: 'Självförsörjning', now: 'nu', todayShort: 'idag',
+        today: 'Idag', todaySolar: 'Sol', todayImport: 'Köpt', todayExport: 'Sålt', todayEv: 'Bil', todayBattery: 'Batteri laddat', fromSolar: 'sol',
+        selfSufficiency: 'Självförsörjning', selfConsumption: 'Egenanvändning sol', now: 'nu', todayShort: 'idag',
         configureTitle: 'Inga enheter valda',
         configureText: 'Konfigurera i inställningarna: redigera widgeten och välj enheter för Nät, Solceller, Laddbox, Bil och Hembatteri.',
         errorTitle: 'Kunde inte ladda enheter',
         errorText: 'Försöker igen strax…',
-        autoNote: 'Enheterna valdes automatiskt. Redigera widgeten för att ändra.',
+        autoNote: 'Enheter du inte valt väljs automatiskt. Redigera widgeten för att ändra.',
         signHint: 'Förbrukningen blir negativ. Kontrollera teckeninställningarna för nät och batteri i widgetens inställningar.',
         signHintGrid: 'Förbrukningen blir negativ. Prova "Invertera tecken för nät" i widgetens inställningar.',
         signHintBattery: 'Förbrukningen blir negativ. Prova "Invertera tecken för batteri" i widgetens inställningar.',
       },
       no: {
+        searchingTitle: 'Leter etter energienheter…',
+        waitingTitle: 'Venter på apper…',
+        waitingText: 'HousePulse starter når disse appene kjører: {apps}.',
+        searchingText: 'Dette kan ta litt tid mens Homey starter.',
         grid: 'Nett', solar: 'Solceller', ev: 'Elbillader', battery: 'Hjemmebatteri', home: 'Hjem',
         import: 'Kjøper', export: 'Selger', producing: 'Produserer', charging: 'Lader',
         discharging: 'Utlading', idle: 'Hviler', consumption: 'Forbruk', estimated: 'Beregnet',
+        consuming: 'Bruker', extra_heatpump: 'Varmepumpe', extra_sauna: 'Badstue', extra_pool: 'Basseng', extra_other: 'Forbruker',
         notSet: 'Ikke valgt', offline: 'Frakoblet', missing: 'Enheten finnes ikke', lastSeen: 'Sist {time}',
-        today: 'I dag', todaySolar: 'Sol', todayImport: 'Kjøpt', todayExport: 'Solgt', todayEv: 'Bil',
-        selfSufficiency: 'Selvforsyning', now: 'nå', todayShort: 'i dag',
+        today: 'I dag', todaySolar: 'Sol', todayImport: 'Kjøpt', todayExport: 'Solgt', todayEv: 'Bil', todayBattery: 'Batteri ladet', fromSolar: 'sol',
+        selfSufficiency: 'Selvforsyning', selfConsumption: 'Egenforbruk sol', now: 'nå', todayShort: 'i dag',
         configureTitle: 'Ingen enheter valgt',
         configureText: 'Konfigurer i innstillingene: rediger widgeten og velg enheter for Nett, Solceller, Elbillader, Bil og Hjemmebatteri.',
         errorTitle: 'Kunne ikke laste enheter',
         errorText: 'Prøver igjen snart…',
-        autoNote: 'Enhetene ble valgt automatisk. Rediger widgeten for å endre dem.',
+        autoNote: 'Enheter du ikke har valgt, velges automatisk. Rediger widgeten for å endre dem.',
         signHint: 'Forbruket blir negativt. Sjekk fortegnsinnstillingene for nett og batteri i widgetens innstillinger.',
         signHintGrid: 'Forbruket blir negativt. Prøv "Inverter fortegn for nett" i widgetens innstillinger.',
         signHintBattery: 'Forbruket blir negativt. Prøv "Inverter fortegn for batteri" i widgetens innstillinger.',
       },
       da: {
+        searchingTitle: 'Leder efter energienheder…',
+        waitingTitle: 'Venter på apps…',
+        waitingText: 'HousePulse starter, når disse apps kører: {apps}.',
+        searchingText: 'Det kan tage et øjeblik, mens Homey starter.',
         grid: 'Net', solar: 'Solceller', ev: 'Elbillader', battery: 'Hjemmebatteri', home: 'Hjem',
         import: 'Køber', export: 'Sælger', producing: 'Producerer', charging: 'Lader',
         discharging: 'Afladning', idle: 'Hviler', consumption: 'Forbrug', estimated: 'Beregnet',
+        consuming: 'Bruger', extra_heatpump: 'Varmepumpe', extra_sauna: 'Sauna', extra_pool: 'Pool', extra_other: 'Forbruger',
         notSet: 'Ikke valgt', offline: 'Offline', missing: 'Enheden findes ikke', lastSeen: 'Senest {time}',
-        today: 'I dag', todaySolar: 'Sol', todayImport: 'Købt', todayExport: 'Solgt', todayEv: 'Bil',
-        selfSufficiency: 'Selvforsyning', now: 'nu', todayShort: 'i dag',
+        today: 'I dag', todaySolar: 'Sol', todayImport: 'Købt', todayExport: 'Solgt', todayEv: 'Bil', todayBattery: 'Batteri opladet', fromSolar: 'sol',
+        selfSufficiency: 'Selvforsyning', selfConsumption: 'Egetforbrug sol', now: 'nu', todayShort: 'i dag',
         configureTitle: 'Ingen enheder valgt',
         configureText: 'Konfigurer i indstillingerne: rediger widgetten og vælg enheder for Net, Solceller, Elbillader, Bil og Hjemmebatteri.',
         errorTitle: 'Kunne ikke indlæse enheder',
         errorText: 'Prøver igen om lidt…',
-        autoNote: 'Enhederne blev valgt automatisk. Rediger widgetten for at ændre dem.',
+        autoNote: 'Enheder, du ikke har valgt, vælges automatisk. Rediger widgetten for at ændre dem.',
         signHint: 'Forbruget bliver negativt. Tjek fortegnsindstillingerne for net og batteri i widgettens indstillinger.',
         signHintGrid: 'Forbruget bliver negativt. Prøv "Vend fortegn for net" i widgettens indstillinger.',
         signHintBattery: 'Forbruget bliver negativt. Prøv "Vend fortegn for batteri" i widgettens indstillinger.',
       },
       de: {
+        searchingTitle: 'Suche nach Energiegeräten…',
+        waitingTitle: 'Warte auf Apps…',
+        waitingText: 'HousePulse startet, sobald diese Apps laufen: {apps}.',
+        searchingText: 'Das kann einen Moment dauern, während Homey startet.',
         grid: 'Netz', solar: 'Solar', ev: 'Wallbox', battery: 'Heimspeicher', home: 'Haus',
         import: 'Bezug', export: 'Einspeisung', producing: 'Erzeugt', charging: 'Lädt',
         discharging: 'Entlädt', idle: 'Ruhe', consumption: 'Verbrauch', estimated: 'Berechnet',
+        consuming: 'Verbraucht', extra_heatpump: 'Wärmepumpe', extra_sauna: 'Sauna', extra_pool: 'Pool', extra_other: 'Verbraucher',
         notSet: 'Nicht gewählt', offline: 'Offline', missing: 'Gerät nicht gefunden', lastSeen: 'Zuletzt {time}',
-        today: 'Heute', todaySolar: 'Solar', todayImport: 'Bezogen', todayExport: 'Eingespeist', todayEv: 'Auto',
-        selfSufficiency: 'Autarkie', now: 'jetzt', todayShort: 'heute',
+        today: 'Heute', todaySolar: 'Solar', todayImport: 'Bezogen', todayExport: 'Eingespeist', todayEv: 'Auto', todayBattery: 'Batterie geladen', fromSolar: 'Solar',
+        selfSufficiency: 'Autarkie', selfConsumption: 'Solar-Eigenverbrauch', now: 'jetzt', todayShort: 'heute',
         configureTitle: 'Keine Geräte ausgewählt',
         configureText: 'Bitte in den Einstellungen konfigurieren: Widget bearbeiten und Geräte für Netz, Solar, Wallbox, Auto und Heimspeicher wählen.',
         errorTitle: 'Geräte konnten nicht geladen werden',
         errorText: 'Neuer Versuch in Kürze…',
-        autoNote: 'Die Geräte wurden automatisch gewählt. Bearbeite das Widget, um sie zu ändern.',
+        autoNote: 'Nicht ausgewählte Geräte werden automatisch gewählt. Bearbeite das Widget, um sie zu ändern.',
         signHint: 'Der Verbrauch wird negativ. Prüfe die Vorzeichen-Einstellungen für Netz und Speicher in den Widget-Einstellungen.',
         signHintGrid: 'Der Verbrauch wird negativ. Probiere "Vorzeichen Netz umkehren" in den Widget-Einstellungen.',
         signHintBattery: 'Der Verbrauch wird negativ. Probiere "Vorzeichen Speicher umkehren" in den Widget-Einstellungen.',
       },
       nl: {
+        searchingTitle: 'Zoeken naar energieapparaten…',
+        waitingTitle: 'Wachten op apps…',
+        waitingText: 'HousePulse start zodra deze apps draaien: {apps}.',
+        searchingText: 'Dit kan even duren terwijl Homey opstart.',
         grid: 'Net', solar: 'Zonnepanelen', ev: 'Laadpaal', battery: 'Thuisbatterij', home: 'Huis',
         import: 'Afname', export: 'Teruglevering', producing: 'Produceert', charging: 'Laadt',
         discharging: 'Ontlaadt', idle: 'Rust', consumption: 'Verbruik', estimated: 'Berekend',
+        consuming: 'Verbruikt', extra_heatpump: 'Warmtepomp', extra_sauna: 'Sauna', extra_pool: 'Zwembad', extra_other: 'Verbruiker',
         notSet: 'Niet gekozen', offline: 'Offline', missing: 'Apparaat niet gevonden', lastSeen: 'Laatst {time}',
-        today: 'Vandaag', todaySolar: 'Zon', todayImport: 'Afgenomen', todayExport: 'Teruggeleverd', todayEv: 'Auto',
-        selfSufficiency: 'Zelfvoorziening', now: 'nu', todayShort: 'vandaag',
+        today: 'Vandaag', todaySolar: 'Zon', todayImport: 'Afgenomen', todayExport: 'Teruggeleverd', todayEv: 'Auto', todayBattery: 'Batterij geladen', fromSolar: 'zon',
+        selfSufficiency: 'Zelfvoorziening', selfConsumption: 'Eigen verbruik zon', now: 'nu', todayShort: 'vandaag',
         configureTitle: 'Geen apparaten gekozen',
         configureText: 'Configureer in de instellingen: bewerk de widget en kies apparaten voor Net, Zonnepanelen, Laadpaal, Auto en Thuisbatterij.',
         errorTitle: 'Apparaten konden niet worden geladen',
         errorText: 'Zo meteen opnieuw…',
-        autoNote: 'De apparaten zijn automatisch gekozen. Bewerk de widget om ze te wijzigen.',
+        autoNote: 'Apparaten die je niet hebt gekozen, worden automatisch gekozen. Bewerk de widget om ze te wijzigen.',
         signHint: 'Het verbruik wordt negatief. Controleer de teken-instellingen voor net en batterij in de widget-instellingen.',
         signHintGrid: 'Het verbruik wordt negatief. Probeer "Teken net omkeren" in de widget-instellingen.',
         signHintBattery: 'Het verbruik wordt negatief. Probeer "Teken batterij omkeren" in de widget-instellingen.',
@@ -281,28 +353,16 @@
       return STRINGS[lang] ? lang : 'en';
     }
 
-    function toNumber(value) {
-      if (value === null || value === undefined || value === '') return null;
-      const n = Number(value);
-      return Number.isFinite(n) ? n : null;
-    }
-
-    const sum = (values) => values.reduce((a, b) => a + b, 0);
-
-    // Seconds for one dot to cross a connector: faster for higher power.
-    function flowDuration(watts) {
-      const kw = Math.min(Math.abs(watts) / 1000, 11);
-      return Math.max(0.6, 2.8 - Math.log2(1 + kw) * 0.6);
-    }
-
-    // Connector thickness in px: 2 px when idle-ish, up to 6 px around 7 kW and above.
-    function flowWeight(watts) {
-      const kw = Math.abs(watts) / 1000;
-      return 2 + Math.min(4, Math.log2(1 + kw) * 1.4);
-    }
-
     // eslint-disable-next-line no-unused-vars
     async function onHomeyReady(Homey) {
+      // Only touch the page when something actually changed: the widget re-renders on every live
+      // update, and unchanged writes still cost style and layout work (on wall tablets, all day).
+      const setText = (el, text) => { if (el.textContent !== text) el.textContent = text; };
+      const setTitle = (el, title) => { if (el.title !== title) el.title = title; };
+      const setHidden = (el, hidden) => { if (el.hidden !== hidden) el.hidden = hidden; };
+      const toggleClass = (el, cls, on) => { if (el.classList.contains(cls) !== on) el.classList.toggle(cls, on); };
+      const setStyle = (el, prop, value) => { if (el.style.getPropertyValue(prop) !== value) el.style.setProperty(prop, value); };
+
       const lang = pickLanguage(Homey);
       const t = STRINGS[lang];
       const fmt1 = new Intl.NumberFormat(lang, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -344,17 +404,15 @@
       // deviceId -> [sourceId], to route live updates that arrive per device + capability
       const deviceSources = new Map();
 
-      function addSource(role, selected) {
-        const sourceId = selected && typeof selected === 'object' ? selected.id : null;
-        if (!sourceId || sourceId === NONE_ID || roleIds[role].includes(sourceId)) return;
+      function addSource(role, { id: sourceId, name }, previous) {
         roleIds[role].push(sourceId);
         if (sources.has(sourceId)) return;
 
         const deviceId = sourceId.split('|')[0];
-        sources.set(sourceId, {
+        sources.set(sourceId, (previous && previous.get(sourceId)) || {
           id: sourceId,
           deviceId,
-          name: selected.name || null,
+          name,
           missing: false,
           available: true,
           powerCap: null,
@@ -370,27 +428,26 @@
         deviceSources.get(deviceId).push(sourceId);
       }
 
-      for (const role of ALL_ROLES) roleIds[role] = [];
-
-      // Nothing configured at all (not even "None") → use devices suggested by the app,
-      // based on Homey's energy metadata and device classes.
-      const hasAnySetting = ALL_ROLES.some((role) => ROLE_SETTINGS[role].some((key) => settings[key] && settings[key].id));
+      // Roles the user hasn't touched use the app's suggestions (see FlowLogic.pickSources).
+      // The chosen devices are shown right away; suggestions are added when they arrive.
+      let autoUsedRoles = [];
       let autoMode = false;
-      if (hasAnySetting) {
+      let suggestionPending = FlowLogic.autoRoles(settings).length > 0;
+      let hasLoaded = false;
+
+      function applySelection(suggestion) {
+        const { roles: picked, autoUsedRoles: used } = FlowLogic.pickSources(settings, suggestion);
+        const previous = new Map(sources);
+        sources.clear();
+        deviceSources.clear();
         for (const role of ALL_ROLES) {
-          for (const key of ROLE_SETTINGS[role]) addSource(role, settings[key]);
+          roleIds[role] = [];
+          for (const item of picked[role]) addSource(role, item, previous);
         }
-      } else {
-        try {
-          const suggestion = await Homey.api('GET', '/suggest');
-          for (const role of ALL_ROLES) {
-            for (const item of (suggestion && suggestion.roles && suggestion.roles[role]) || []) addSource(role, item);
-          }
-          autoMode = sources.size > 0;
-        } catch (err) {
-          console.error('HousePulse: could not get suggested devices', err);
-        }
+        autoUsedRoles = used;
+        autoMode = used.length > 0;
       }
+      applySelection(null);
 
       // Homey's clock minus this device's clock, so staleness works even if the
       // dashboard runs on a phone with a slightly wrong clock.
@@ -428,8 +485,25 @@
       for (const conn of document.querySelectorAll('[data-conn]')) {
         els.conns[conn.dataset.conn] = conn;
       }
+      // The extra node (optional big consumer): name and icon from its settings.
+      const EXTRA_TYPES = ['heatpump', 'sauna', 'pool', 'other'];
+      const extraType = EXTRA_TYPES.includes(settings.extra_type) ? settings.extra_type : 'heatpump';
+      const extraLabel = (typeof settings.extra_name === 'string' && settings.extra_name.trim()) || t[`extra_${extraType}`];
+      els.nodes.extra.label.textContent = extraLabel;
+      for (const icon of els.nodes.extra.root.querySelectorAll('[data-extra-icon]')) {
+        // An attribute, not the .hidden property: <svg> elements don't have that property.
+        icon.toggleAttribute('hidden', icon.dataset.extraIcon !== extraType);
+      }
+
       const todayLabels = {
-        solar: t.todaySolar, import: t.todayImport, export: t.todayExport, ev: t.todayEv, self: t.selfSufficiency,
+        solar: t.todaySolar,
+        import: t.todayImport,
+        export: t.todayExport,
+        ev: t.todayEv,
+        battery: t.todayBattery,
+        extra: extraLabel,
+        self: t.selfSufficiency,
+        selfUse: t.selfConsumption,
       };
       for (const item of document.querySelectorAll('[data-today]')) {
         const key = item.dataset.today;
@@ -439,107 +513,37 @@
       els.today.querySelector('[data-today-title]').textContent = t.today;
 
       function showMessage(title, text) {
-        els.messageTitle.textContent = title;
-        els.messageText.textContent = text;
-        els.message.hidden = false;
-        els.flow.hidden = true;
-        els.today.hidden = true;
-        els.autoNote.hidden = true;
-        els.signHint.hidden = true;
+        setText(els.messageTitle, title);
+        setText(els.messageText, text);
+        setHidden(els.message, false);
+        setHidden(els.flow, true);
+        setHidden(els.today, true);
+        setHidden(els.autoNote, true);
+        setHidden(els.signHint, true);
       }
 
       function showFlow() {
-        els.message.hidden = true;
-        els.flow.hidden = false;
-        els.autoNote.hidden = !autoMode;
+        setHidden(els.message, true);
+        setHidden(els.flow, false);
+        setHidden(els.autoNote, !autoMode);
         if (autoMode) {
-          els.autoNote.textContent = t.autoNote;
-          els.autoNote.title = [...sources.values()].map((s) => s.name).filter(Boolean).join(' · ');
+          setText(els.autoNote, t.autoNote);
+          setTitle(els.autoNote, [...sources.values()].map((s) => s.name).filter(Boolean).join(' · '));
         }
       }
 
       /* ---------------- Calculations ---------------- */
 
-      // Normalised sign per role: grid +import/-export, battery +charging/-discharging,
-      // solar/ev/home always positive.
-      function normalise(role, watts) {
-        if (role === 'grid') return invert.grid ? -watts : watts;
-        if (role === 'battery') return invert.battery ? -watts : watts;
-        return Math.abs(watts);
-      }
-
-      function isStale(d, now) {
-        return staleMs > 0
-          && d.powerTs !== null
-          && now - d.powerTs > staleMs
-          && Math.abs(d.power) >= IDLE_THRESHOLD_W;
-      }
-
-      // Aggregate the devices of a role into one view.
-      function roleInfo(role, now) {
-        const list = roleIds[role].map((id) => sources.get(id));
-        const live = list.filter((d) => !d.missing && d.available);
-        const powered = live.filter((d) => d.hasPower && d.power !== null);
-        const fresh = powered.filter((d) => !isStale(d, now));
-        const stale = powered.filter((d) => isStale(d, now));
-        const socs = live.filter((d) => d.hasSoc && d.soc !== null).map((d) => d.soc);
-
-        return {
-          configured: list.length > 0,
-          allMissing: list.length > 0 && list.every((d) => d.missing),
-          allOffline: list.length > 0 && live.length === 0 && !list.every((d) => d.missing),
-          hasPower: list.some((d) => d.hasPower),
-          power: fresh.length ? sum(fresh.map((d) => normalise(role, d.power))) : null,
-          // Only "stale" when nothing fresh is left to show.
-          staleSince: fresh.length === 0 && stale.length ? Math.min(...stale.map((d) => d.powerTs)) : null,
-          soc: socs.length ? sum(socs) / socs.length : null,
-          names: list.map((d) => d.name).filter(Boolean),
-        };
-      }
+      const listOf = (role) => roleIds[role].map((id) => sources.get(id));
+      const roleInfo = (role, now) => FlowLogic.aggregateRole(role, listOf(role), { now, staleMs, invert });
+      const roleToday = (role) => FlowLogic.aggregateToday(role, listOf(role), invert);
+      const { towardHome } = FlowLogic;
 
       function statusFor(role, info, watts) {
-        if (!info.configured) return t.notSet;
-        if (info.allMissing) return t.missing;
-        if (info.allOffline) return t.offline;
-        if (info.staleSince !== null) return t.lastSeen.replace('{time}', formatTime(info.staleSince));
-        if (watts === null || Math.abs(watts) < IDLE_THRESHOLD_W) return t.idle;
-        switch (role) {
-          case 'grid': return watts > 0 ? t.import : t.export;
-          case 'solar': return t.producing;
-          case 'ev': return t.charging;
-          case 'battery': return watts > 0 ? t.charging : t.discharging;
-          default: return '';
-        }
-      }
-
-      // true = energy moving toward Home, false = away from Home, null = no flow
-      function towardHome(role, watts) {
-        if (watts === null || Math.abs(watts) < IDLE_THRESHOLD_W) return null;
-        switch (role) {
-          case 'grid': return watts > 0;
-          case 'solar': return true;
-          case 'battery': return watts < 0;
-          case 'ev': return false;
-          default: return null;
-        }
-      }
-
-      // Today's kWh for a role, as { in, out, approximate } (null if no data yet).
-      function roleToday(role) {
-        const list = roleIds[role].map((id) => sources.get(id)).filter((d) => !d.missing && d.today);
-        if (!list.length) return null;
-        const flip = (role === 'grid' && invert.grid) || (role === 'battery' && invert.battery);
-        let inKwh = 0;
-        let outKwh = 0;
-        let approximate = false;
-        for (const d of list) {
-          inKwh += flip ? d.today.outKwh : d.today.inKwh;
-          outKwh += flip ? d.today.inKwh : d.today.outKwh;
-          // "≈" only when an estimated (integrated) direction actually contributed energy.
-          if ((d.today.inSource === 'integrated' && d.today.inKwh >= 0.005)
-            || (d.today.outSource === 'integrated' && d.today.outKwh >= 0.005)) approximate = true;
-        }
-        return { in: inKwh, out: outKwh, approximate };
+        // Still loading: the first data, or the suggestion that may fill this role.
+        if ((!hasLoaded && info.configured) || (suggestionPending && !info.configured)) return '…';
+        const key = FlowLogic.statusKey(role, info, watts);
+        return key === 'lastSeen' ? t.lastSeen.replace('{time}', formatTime(info.staleSince)) : t[key];
       }
 
       /* ---------------- Rendering ---------------- */
@@ -548,15 +552,16 @@
 
       function renderNode(role, info, watts) {
         const node = els.nodes[role];
+        if (role === 'extra') setHidden(node.root, !info.configured);
 
-        node.root.classList.toggle('is-unset', !info.configured);
-        node.root.classList.toggle('is-missing', info.allMissing);
-        node.root.classList.toggle('is-offline', info.allOffline);
-        node.root.classList.toggle('is-stale', info.staleSince !== null);
-        node.root.classList.toggle('is-active', watts !== null && Math.abs(watts) >= IDLE_THRESHOLD_W);
+        toggleClass(node.root, 'is-unset', !info.configured);
+        toggleClass(node.root, 'is-missing', info.allMissing);
+        toggleClass(node.root, 'is-offline', info.allOffline);
+        toggleClass(node.root, 'is-stale', info.staleSince !== null);
+        toggleClass(node.root, 'is-active', watts !== null && Math.abs(watts) >= IDLE_THRESHOLD_W);
 
-        node.value.textContent = info.configured && info.hasPower ? formatPower(watts) : '—';
-        node.status.textContent = statusFor(role, info, watts);
+        setText(node.value, info.configured && info.hasPower ? formatPower(watts) : '—');
+        setText(node.status, statusFor(role, info, watts));
 
         // State-of-charge ring and badge. The EV node uses the car's SoC when a car is selected.
         let soc = info.soc;
@@ -568,34 +573,34 @@
         }
         if (soc !== null) soc = Math.max(0, Math.min(100, soc));
 
-        node.root.classList.toggle('has-soc', soc !== null);
-        node.root.classList.toggle('is-low', soc !== null && soc < LOW_SOC_PERCENT);
+        toggleClass(node.root, 'has-soc', soc !== null);
+        toggleClass(node.root, 'is-low', soc !== null && soc < LOW_SOC_PERCENT);
         if (soc !== null) {
-          node.root.style.setProperty('--soc', soc.toFixed(1));
-          node.badge.textContent = `${Math.round(soc)} %`;
-          node.badge.hidden = false;
+          setStyle(node.root, '--soc', soc.toFixed(1));
+          setText(node.badge, `${Math.round(soc)} %`);
+          setHidden(node.badge, false);
           // Battery with SoC but no power capability: show SoC as the main value.
-          if (!info.hasPower) node.value.textContent = `${Math.round(soc)} %`;
+          if (!info.hasPower) setText(node.value, `${Math.round(soc)} %`);
         } else {
-          node.badge.hidden = true;
+          setHidden(node.badge, true);
         }
-        node.root.title = names.join(' · ');
+        setTitle(node.root, names.join(' · '));
       }
 
       function renderConnector(role, info, watts) {
         const conn = els.conns[role];
         const direction = info.allOffline || info.allMissing ? null : towardHome(role, watts);
 
-        conn.classList.toggle('is-hidden', !info.configured);
-        conn.classList.toggle('is-active', direction !== null);
+        toggleClass(conn, 'is-hidden', !info.configured);
+        toggleClass(conn, 'is-active', direction !== null);
         if (direction === null) {
           conn.style.removeProperty('--flow-weight');
           return;
         }
         const forward = conn.dataset.in === 'forward';
-        conn.style.setProperty('--flow-direction', direction === forward ? 'normal' : 'reverse');
-        conn.style.setProperty('--flow-duration', `${flowDuration(watts).toFixed(2)}s`);
-        conn.style.setProperty('--flow-weight', `${flowWeight(watts).toFixed(1)}px`);
+        setStyle(conn, '--flow-direction', direction === forward ? 'normal' : 'reverse');
+        setStyle(conn, '--flow-duration', `${flowDuration(watts).toFixed(2)}s`);
+        setStyle(conn, '--flow-weight', `${flowWeight(watts).toFixed(1)}px`);
       }
 
       // Returns the home consumption in W (or null).
@@ -612,14 +617,14 @@
             : meter.allOffline ? t.offline
               : meter.staleSince !== null ? t.lastSeen.replace('{time}', formatTime(meter.staleSince))
                 : t.consumption;
-          node.root.classList.toggle('is-missing', meter.allMissing);
-          node.root.classList.toggle('is-offline', meter.allOffline);
-          node.root.classList.toggle('is-stale', meter.staleSince !== null);
-          node.root.title = meter.names.join(' · ');
+          toggleClass(node.root, 'is-missing', meter.allMissing);
+          toggleClass(node.root, 'is-offline', meter.allOffline);
+          toggleClass(node.root, 'is-stale', meter.staleSince !== null);
+          setTitle(node.root, meter.names.join(' · '));
         } else if (powers.grid !== null) {
           // Calculated: what comes in (grid import + solar + battery discharge) minus what goes
           // to the battery and the EV charger.
-          const raw = powers.grid + (powers.solar || 0) - (powers.battery || 0) - (powers.ev || 0);
+          const raw = FlowLogic.calcHome(powers);
           if (raw < HOME_CALC_WARNING_W) {
             warnings.push(`Home calc is ${Math.round(raw)} W (<0): check the sign of grid/battery or invert settings`);
           }
@@ -630,9 +635,12 @@
           trackNegativeHome(null, powers, now);
         }
 
-        node.value.textContent = formatPower(home);
-        node.status.textContent = status;
-        node.root.classList.toggle('is-active', home !== null && home >= IDLE_THRESHOLD_W);
+        // The extra consumer is fed from Home and drawn separately: Home shows the rest of the
+        // house. Self-sufficiency (and the return value) use the whole consumption.
+        const shown = roleIds.extra.length ? FlowLogic.homeRest(home, powers.extra) : home;
+        setText(node.value, formatPower(shown));
+        setText(node.status, status);
+        toggleClass(node.root, 'is-active', shown !== null && shown >= IDLE_THRESHOLD_W);
         return home;
       }
 
@@ -642,31 +650,38 @@
       function trackNegativeHome(raw, powers, now) {
         if (raw === null || raw >= HOME_CALC_WARNING_W) {
           negativeSince = null;
-          els.signHint.hidden = true;
+          setHidden(els.signHint, true);
           return;
         }
         if (negativeSince === null) negativeSince = now;
         if (now - negativeSince < SIGN_HINT_AFTER_MS) return;
 
-        // Which single setting would make it plausible?
-        const fixedByGrid = raw - 2 * powers.grid >= HOME_CALC_WARNING_W;
-        const fixedByBattery = powers.battery !== null && Math.abs(powers.battery) >= IDLE_THRESHOLD_W
-          && raw + 2 * powers.battery >= HOME_CALC_WARNING_W;
-        els.signHint.textContent = fixedByGrid && !fixedByBattery ? t.signHintGrid
-          : fixedByBattery && !fixedByGrid ? t.signHintBattery
-            : t.signHint;
-        els.signHint.hidden = false;
+        const kind = FlowLogic.signHintKind(raw, powers);
+        setText(els.signHint, kind === 'grid' ? t.signHintGrid
+          : kind === 'battery' ? t.signHintBattery
+            : t.signHint);
+        setHidden(els.signHint, false);
       }
 
       function setTodayItem(key, text) {
         const item = els.todayItems[key];
-        item.root.hidden = text === null;
-        if (text !== null) item.value.textContent = text;
+        setHidden(item.root, text === null);
+        if (text !== null) setText(item.value, text);
+      }
+
+      // "Charged from solar" totals from the app for this widget's roles, or null.
+      let split = null;
+
+      /** " · 68 % sol" for the EV or battery item, or '' when there is too little to tell. */
+      function solarShare(totalKey, solarKey) {
+        if (!split || !(split[totalKey] >= 0.05)) return '';
+        const share = Math.max(0, Math.min(1, split[solarKey] / split[totalKey]));
+        return ` · ${Math.round(share * 100)} % ${t.fromSolar}`;
       }
 
       function renderToday(powers, home) {
         if (!showToday) {
-          els.today.hidden = true;
+          setHidden(els.today, true);
           return;
         }
 
@@ -678,33 +693,39 @@
         setTodayItem('solar', solar ? formatKwh(solar.in + solar.out, solar.approximate) : null);
         setTodayItem('import', grid ? formatKwh(grid.in, grid.approximate) : null);
         setTodayItem('export', grid && grid.out >= 0.05 ? formatKwh(grid.out, grid.approximate) : null);
-        setTodayItem('ev', ev ? formatKwh(ev.in + ev.out, ev.approximate) : null);
+        setTodayItem('ev', ev ? formatKwh(ev.in + ev.out, ev.approximate) + solarShare('evKwh', 'evSolarKwh') : null);
+        setTodayItem('battery', battery && battery.in >= 0.05
+          ? formatKwh(battery.in, battery.approximate) + solarShare('batteryKwh', 'batterySolarKwh') : null);
+        const extra = roleToday('extra');
+        setTodayItem('extra', extra ? formatKwh(extra.in + extra.out, extra.approximate) : null);
 
         // Self-sufficiency: share of consumption not covered by grid import.
         const parts = [];
-        if (powers.grid !== null && home !== null) {
-          const consumption = home + (powers.ev || 0) + Math.max(0, powers.battery || 0);
-          if (consumption >= IDLE_THRESHOLD_W) {
-            const share = 1 - Math.max(0, powers.grid) / consumption;
-            parts.push(`${Math.round(Math.max(0, Math.min(1, share)) * 100)} % ${t.now}`);
-          }
-        }
-        if (grid && solar) {
-          const consumption = grid.in + (solar.in + solar.out) - grid.out
-            + (battery ? battery.out - battery.in : 0);
-          if (consumption >= 0.1) {
-            const share = 1 - grid.in / consumption;
-            parts.push(`${Math.round(Math.max(0, Math.min(1, share)) * 100)} % ${t.todayShort}`);
-          }
-        }
+        const shareNow = FlowLogic.selfSufficiencyNow(powers, home);
+        if (shareNow !== null) parts.push(`${Math.round(shareNow * 100)} % ${t.now}`);
+        const shareToday = FlowLogic.selfSufficiencyToday({ grid, solar, battery });
+        if (shareToday !== null) parts.push(`${Math.round(shareToday * 100)} % ${t.todayShort}`);
         setTodayItem('self', parts.length ? parts.join(' · ') : null);
 
-        els.today.hidden = Object.values(els.todayItems).every((item) => item.root.hidden);
+        // Self-consumption: share of the solar production used at home instead of sold.
+        const useParts = [];
+        const useNow = FlowLogic.selfConsumptionNow(powers);
+        if (useNow !== null) useParts.push(`${Math.round(useNow * 100)} % ${t.now}`);
+        const useToday = FlowLogic.selfConsumptionToday({ grid, solar });
+        if (useToday !== null) useParts.push(`${Math.round(useToday * 100)} % ${t.todayShort}`);
+        setTodayItem('selfUse', useParts.length ? useParts.join(' · ') : null);
+
+        setHidden(els.today, Object.values(els.todayItems).every((item) => item.root.hidden));
       }
 
       function render() {
+        if (waitingFor) {
+          showMessage(t.waitingTitle, waitingFor.length ? t.waitingText.replace('{apps}', waitingFor.join(', ')) : t.searchingText);
+          return;
+        }
         if (sources.size === 0) {
-          showMessage(t.configureTitle, t.configureText);
+          if (suggestionPending) showMessage(t.searchingTitle, t.searchingText);
+          else showMessage(t.configureTitle, t.configureText);
           return;
         }
         showFlow();
@@ -720,7 +741,34 @@
         }
         const home = renderHome(powers, now);
         renderToday(powers, home);
+        positionExtraConnector();
         renderDebug();
+      }
+
+      // The connector Home → extra node is diagonal, so it is placed from the rings' real
+      // positions: from the edge of Home's ring to the edge of the extra node's ring.
+      function positionExtraConnector() {
+        if (!roleIds.extra.length) return;
+        const conn = els.conns.extra;
+        const box = els.flow.getBoundingClientRect();
+        const from = els.nodes.home.root.querySelector('.node__ring').getBoundingClientRect();
+        const to = els.nodes.extra.root.querySelector('.node__ring').getBoundingClientRect();
+        if (!from.width || !to.width) return; // not laid out (yet)
+
+        const ax = from.left + from.width / 2 - box.left;
+        const ay = from.top + from.height / 2 - box.top;
+        const bx = to.left + to.width / 2 - box.left;
+        const by = to.top + to.height / 2 - box.top;
+        const angle = Math.atan2(by - ay, bx - ax);
+        const gap = 4; // px between ring and line, like the other connectors
+        const startOffset = from.width / 2 + gap;
+        const length = Math.max(0, Math.hypot(bx - ax, by - ay) - startOffset - to.width / 2 - gap);
+        const half = (conn.offsetHeight || 12) / 2;
+
+        setStyle(conn, 'left', `${(ax + Math.cos(angle) * startOffset).toFixed(1)}px`);
+        setStyle(conn, 'top', `${(ay + Math.sin(angle) * startOffset - half).toFixed(1)}px`);
+        setStyle(conn, 'width', `${length.toFixed(1)}px`);
+        setStyle(conn, 'transform', `rotate(${angle.toFixed(4)}rad)`);
       }
 
       let renderQueued = false;
@@ -772,7 +820,7 @@
       function renderDebug() {
         if (!debugInfo.enabled) return;
         const lines = [
-          `DEBUG · ${instanceId} · ${autoMode ? 'AUTO' : 'manual'} · events ${debugInfo.events}`
+          `DEBUG · ${instanceId} · ${autoMode ? `AUTO: ${autoUsedRoles.join(',')}` : 'manual'} · events ${debugInfo.events}`
             + ` · last ${clock(debugInfo.lastEvent)} · sub ${clock(debugInfo.lastSubscribe)}`
             + ` · err ${debugInfo.errors} · clock offset ${clockOffset} ms`,
         ];
@@ -790,7 +838,7 @@
           }
         }
         for (const warning of warnings) lines.push(`⚠ ${warning}`);
-        els.debug.textContent = lines.join('\n');
+        setText(els.debug, lines.join('\n'));
       }
 
       /* ---------------- Live updates from app.js ---------------- */
@@ -837,6 +885,13 @@
         scheduleRender();
       });
 
+      Homey.on('energy_split', (data) => {
+        if (!data || !split || data.key !== split.key) return;
+        split = data;
+        debugLog('split', data);
+        scheduleRender();
+      });
+
       Homey.on('energy_today', (data) => {
         const d = data && sources.get(data.sourceId);
         if (!d) return;
@@ -848,8 +903,12 @@
       /* ---------------- Auto height ---------------- */
 
       let reportedHeight = 0;
+      // Content height plus any padding Homey puts on <body> (the homey-widget classes add
+      // padding that our own CSS can't override), so the widget is never cut off at the bottom.
       function measureHeight() {
-        return Math.ceil(els.root.getBoundingClientRect().height);
+        const style = window.getComputedStyle(document.body);
+        const padding = (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0);
+        return Math.ceil(els.root.getBoundingClientRect().height + padding);
       }
       function updateHeight() {
         const height = measureHeight();
@@ -859,7 +918,10 @@
       }
       if (typeof ResizeObserver === 'function') {
         // Fires when the column width changes, rows appear/disappear or the state switches.
-        new ResizeObserver(() => requestAnimationFrame(updateHeight)).observe(els.root);
+        new ResizeObserver(() => requestAnimationFrame(() => {
+          positionExtraConnector();
+          updateHeight();
+        })).observe(els.root);
       }
 
       /* ---------------- Subscribe ---------------- */
@@ -870,24 +932,45 @@
       } catch (err) { /* fall through */ }
       if (!instanceId) instanceId = `w-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
-      let hasLoaded = false;
+      // App names while the app waits for other apps at startup, otherwise null.
+      let waitingFor = null;
+      let startingTimer = null;
+
       async function subscribe() {
         if (sources.size === 0) return;
         try {
           const sentAt = Date.now();
-          const result = await Homey.api('POST', '/subscribe', {
+          const result = await withTimeout(Homey.api('POST', '/subscribe', {
             instanceId,
             sourceIds: [...sources.keys()],
-          });
+            split: {
+              grid: roleIds.grid, solar: roleIds.solar, ev: roleIds.ev, battery: roleIds.battery, invert,
+            },
+          }), API_TIMEOUT_MS);
           const receivedAt = Date.now();
           if (result && typeof result.serverTime === 'number') {
             clockOffset = Math.round(result.serverTime - (sentAt + receivedAt) / 2);
           }
+          if (result && result.starting) {
+            // The app waits for the apps that own the devices: say so and ask again soon.
+            waitingFor = Array.isArray(result.waitingFor) ? result.waitingFor : [];
+            render();
+            updateHeight();
+            if (!startingTimer) {
+              startingTimer = setTimeout(() => {
+                startingTimer = null;
+                subscribe();
+              }, STARTING_RETRY_MS);
+            }
+            return;
+          }
+          waitingFor = null;
           applySnapshot(result && result.sources);
+          split = (result && result.split) || null;
           hasLoaded = true;
 
           debugInfo.enabled = Boolean(result && result.debug);
-          els.debug.hidden = !debugInfo.enabled;
+          setHidden(els.debug, !debugInfo.enabled);
           if (debugInfo.enabled) {
             debugInfo.lastSubscribe = Date.now();
             debugLog('subscribe ok', { instanceId, settings, snapshot: result.sources });
@@ -903,11 +986,34 @@
         }
       }
 
+      async function loadSuggestions() {
+        try {
+          const suggestion = await withTimeout(Homey.api('GET', '/suggest'), API_TIMEOUT_MS);
+          suggestionPending = false;
+          applySelection(suggestion);
+          debugLog('suggestions', autoUsedRoles, suggestion);
+          render();
+          await subscribe();
+          if (sources.size === 0) render(); // nothing suggested: show "configure" instead of "looking"
+        } catch (err) {
+          debugInfo.errors++;
+          console.error('HousePulse: could not get suggested devices, retrying', err);
+          // Meanwhile show the devices the user did choose.
+          if (!hasLoaded) subscribe();
+          setTimeout(loadSuggestions, SUGGEST_RETRY_MS);
+        }
+      }
+
+      // Tell Homey the widget is ready before talking to the app: while the app or Homey is
+      // starting, those calls can take long, and Homey shows a spinner until ready() is called.
       render();
       reportedHeight = measureHeight();
       Homey.ready({ height: reportedHeight || undefined });
 
-      await subscribe();
+      // With suggestions to load, subscribe once they are in (one subscribe with the full set,
+      // so the app doesn't release and re-add the suggested devices).
+      if (suggestionPending) loadSuggestions();
+      else subscribe();
       // Keep the backend subscription alive, and retry if the first attempt failed.
       setInterval(subscribe, RESUBSCRIBE_INTERVAL_MS);
       // Re-evaluate "old value" markers even when nothing new arrives.

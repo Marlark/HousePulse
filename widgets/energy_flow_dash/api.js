@@ -9,10 +9,11 @@
  */
 module.exports = {
 
-  // POST /subscribe  { instanceId, sourceIds } → { sources, debug, serverTime }
+  // POST /subscribe  { instanceId, sourceIds, split } → { sources, split, debug, serverTime }
+  // split: { grid, solar, ev, battery: [sourceId], invert: { grid, battery } } for "charged from solar"
   async subscribe({ homey, body }) {
-    const { instanceId, sourceIds } = body || {};
-    return homey.app.subscribeWidget({ instanceId, sourceIds });
+    const { instanceId, sourceIds, split } = body || {};
+    return homey.app.subscribeWidget({ instanceId, sourceIds, split });
   },
 
   // GET /suggest → { roles: { grid: [{ id, name }], solar: [...], ... } }

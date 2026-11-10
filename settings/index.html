@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script type="text/javascript" src="/homey.js" data-origin="settings"></script>
+  <script type="text/javascript" src="settings.js"></script>
+  <script type="text/javascript">
+    // Set the theme before Homey's stylesheet loads, so a dark device never flashes white.
+    HousePulseSettings.applyTheme(window, document);
+  </script>
+  <style>
+    /*
+     * Homey's settings stylesheet (homey.css) only has a light palette and is added after this
+     * <style>. For dark mode we redefine Homey's own semantic colors with higher specificity
+     * (html[data-theme]), so Homey's buttons, checkboxes and text follow along.
+     */
+    html[data-theme="dark"] {
+      color-scheme: dark;
+      --homey-color-body: #111113;
+      --homey-color-component: #1c1c1e;
+      --homey-color-line: #38383a;
+      --homey-color-line-hover: #48484a;
+      --homey-color-line-active: #48484a;
+      --homey-color-text: #f2f2f7;
+      --homey-color-text-light: #a1a1aa;
+      --homey-color-text-placeholder: #636366;
+      --homey-color-text-placeholder-hover: #7c7c80;
+      --homey-color-highlight: #3d9bff;
+      --homey-color-highlight-hover: #66b0ff;
+      --homey-color-highlight-active: #1f8bff;
+      background: var(--homey-color-body);
+      color: var(--homey-color-text);
+    }
+
+    html[data-theme="dark"] [class*='homey-button'][class*='-secondary'] {
+      --homey-button-background: #2c2c2e;
+      --homey-button-box-shadow: none;
+    }
+
+    html[data-theme="light"] {
+      color-scheme: light;
+    }
+
+    .report {
+      width: 100%;
+      min-height: 320px;
+      box-sizing: border-box;
+      padding: 10px;
+      border: 1px solid var(--homey-color-line, #dddee2);
+      border-radius: 10px;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 11px;
+      line-height: 1.4;
+      white-space: pre;
+      resize: vertical;
+      background: var(--homey-color-component, #ffffff);
+      color: var(--homey-color-text, #181818);
+    }
+
+    .report:focus {
+      outline: none;
+      border-color: var(--homey-color-highlight, #0082fa);
+    }
+
+    .status {
+      min-height: 1.4em;
+      margin: 8px 0;
+      font-size: 13px;
+      color: var(--homey-color-text-light, #939496);
+    }
+
+    .buttons {
+      display: flex;
+      gap: 8px;
+      margin: 12px 0;
+    }
+
+    .buttons > * {
+      flex: 1;
+    }
+
+    .section-title {
+      margin: 20px 0 4px;
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--homey-color-text, #181818);
+    }
+
+    .hint {
+      margin: 0 0 8px;
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--homey-color-text-light, #939496);
+    }
+
+    .apps {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Denser than Homey's default (12px margins), so more apps fit on a phone screen. */
+    label.homey-form-checkbox.app {
+      margin: 4px 0;
+      line-height: 20px;
+    }
+
+    .app__meta {
+      display: block;
+      line-height: 16px;
+      font-size: 12px;
+      color: var(--homey-color-text-light, #939496);
+    }
+
+    .app__meta--used {
+      color: var(--homey-color-highlight, #0082fa);
+    }
+
+    /* "Show more" toggles: look like links. */
+    .more {
+      all: unset;
+      display: block;
+      margin: 10px 0;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--homey-color-highlight, #0082fa);
+      cursor: pointer;
+    }
+
+    .more::after {
+      content: ' \25BE';
+    }
+
+    /* Homey's label and button styles set display, which would override the hidden attribute. */
+    [hidden] {
+      display: none !important;
+    }
+
+    .app-search {
+      width: 100%;
+      margin: 8px 0 4px;
+    }
+
+    #pick-widget-apps {
+      margin: 4px 0 8px;
+    }
+
+    /*
+     * Homey's checkbox CSS darkens the label on :hover (--homey-color-black). On a touch screen a
+     * tap leaves the label in :hover, so in dark mode the text turned black on black after ticking.
+     */
+    html[data-theme="dark"] label.homey-form-checkbox:hover,
+    html[data-theme="dark"] label.homey-form-radio:hover {
+      color: var(--homey-color-text);
+    }
+  </style>
+</head>
+<body>
+  <header class="homey-header">
+    <h1 class="homey-title">HousePulse</h1>
+  </header>
+
+  <h2 class="section-title" data-i18n="settings.waitTitle"></h2>
+  <p class="hint" data-i18n="settings.waitText"></p>
+  <p class="status" id="wait-status"></p>
+  <button class="homey-button-secondary-small" id="pick-widget-apps" data-i18n="settings.pickWidgetApps" hidden></button>
+  <fieldset class="homey-form-fieldset">
+    <div class="apps" id="apps"></div>
+    <button type="button" class="more hy-nostyle" id="more-energy" hidden></button>
+    <div class="apps" id="apps-energy" hidden></div>
+    <button type="button" class="more hy-nostyle" id="more-all" hidden></button>
+    <div id="apps-all-section" hidden>
+      <input class="homey-form-input app-search" id="app-search" type="text" autocomplete="off">
+      <p class="hint" id="app-search-empty" data-i18n="settings.searchNoMatch" hidden></p>
+      <div class="apps" id="apps-all"></div>
+    </div>
+  </fieldset>
+  <p class="status" id="wait-message"></p>
+
+  <h2 class="section-title" data-i18n="settings.title"></h2>
+  <p class="hint" data-i18n="settings.subtitle"></p>
+
+  <fieldset class="homey-form-fieldset">
+    <label class="homey-form-checkbox">
+      <input class="homey-form-checkbox-input" type="checkbox" id="anonymize" checked>
+      <span class="homey-form-checkbox-checkmark"></span>
+      <span class="homey-form-checkbox-text" data-i18n="settings.anonymize"></span>
+    </label>
+  </fieldset>
+
+  <div class="buttons">
+    <button class="homey-button-secondary-small" id="refresh" data-i18n="settings.refresh"></button>
+    <button class="homey-button-primary-small" id="copy" data-i18n="settings.copy"></button>
+  </div>
+
+  <p class="status" id="status"></p>
+  <textarea class="report" id="report" readonly spellcheck="false"></textarea>
+
+  <script type="text/javascript">
+    // eslint-disable-next-line no-unused-vars
+    function onHomeyReady(Homey) {
+      HousePulseSettings.init(Homey, document, window);
+    }
+  </script>
+</body>
+</html>

@@ -18,6 +18,7 @@
   --ef-ev: #8b5cf6;
   --ef-battery: #1e9e6a;
   --ef-home: #64748b;
+  --ef-extra: #d9467a;
   --ef-low: #e5484d;
   --ef-warn: #d97706;
 
@@ -47,10 +48,10 @@ body {
   padding: 0;
 }
 
+/* The background is left to Homey (--homey-background-color, switches with light/dark). */
 body {
   font-family: var(--ef-font);
   color: var(--ef-text);
-  background: transparent;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
 }
@@ -103,6 +104,7 @@ body {
 
 .flow {
   --ef-gap-v: 30px;
+  position: relative; /* for the diagonal connector to the extra node */
   padding: 12px 8px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(16px, 0.7fr) minmax(0, 1fr) minmax(16px, 0.7fr) minmax(0, 1fr);
@@ -113,7 +115,7 @@ body {
     ".    .      c-solar .         ."
     "grid c-grid home    c-battery battery"
     ".    .      c-ev    .         ."
-    ".    .      ev      .         .";
+    ".    .      ev      .         extra";
   align-items: start;
   justify-items: center;
 }
@@ -138,6 +140,7 @@ body {
 .node--ev { --accent: var(--ef-ev); }
 .node--battery { --accent: var(--ef-battery); }
 .node--home { --accent: var(--ef-home); }
+.node--extra { --accent: var(--ef-extra); }
 
 /* The ring doubles as the state-of-charge indicator (conic gradient) */
 .node__ring {
@@ -275,7 +278,7 @@ body {
   gap: 4px 12px;
   margin: 0 8px;
   padding: 8px 4px 10px;
-  border-top: 1px solid var(--ef-track);
+  border-top: 1px solid var(--homey-line-color, var(--ef-track));
   font-size: 11px;
   line-height: 1.3;
   color: var(--ef-text-muted);
@@ -310,7 +313,10 @@ body {
 .today__item--grid { --dot-color: var(--ef-grid); }
 .today__item--export { --dot-color: color-mix(in srgb, var(--ef-grid) 45%, transparent); }
 .today__item--ev { --dot-color: var(--ef-ev); }
+.today__item--battery { --dot-color: var(--ef-battery); }
 .today__item--self { --dot-color: var(--ef-battery); }
+.today__item--selfuse { --dot-color: var(--ef-solar); }
+.today__item--extra { --dot-color: var(--ef-extra); }
 
 /* ------------------------------------------------------------------ */
 /* Connectors with animated flow dots                                  */
@@ -367,26 +373,69 @@ body {
   transform: translateX(-50%);
 }
 
+/*
+ * Each dot is a carrier as long as the connector, with the visible dot (::before) at its start.
+ * Moving the carrier by translate(100%) moves the dot exactly one connector length. Only
+ * transform and opacity are animated, which the browser runs on the GPU without layout work:
+ * important for wall tablets that show the dashboard all day.
+ */
 .conn__dot {
   --dot: calc(var(--flow-weight) + 4px);
+  position: absolute;
+  opacity: 0;
+}
+
+.conn__dot::before {
+  content: '';
   position: absolute;
   width: var(--dot);
   height: var(--dot);
   border-radius: 50%;
   background: var(--dot-color, var(--ef-home));
-  opacity: 0;
+  /* centre the dot on the carrier's start point */
+  left: calc(var(--dot) / -2);
+  top: calc(var(--dot) / -2);
+}
+
+.conn--h .conn__dot {
+  left: 0;
+  top: 50%;
+  width: 100%;
+  height: 0;
+}
+
+.conn--v .conn__dot {
+  top: 0;
+  left: 50%;
+  width: 0;
+  height: 100%;
 }
 
 .conn[data-conn="grid"] { --dot-color: var(--ef-grid); }
 .conn[data-conn="solar"] { --dot-color: var(--ef-solar); }
 .conn[data-conn="ev"] { --dot-color: var(--ef-ev); }
 .conn[data-conn="battery"] { --dot-color: var(--ef-battery); }
+.conn[data-conn="extra"] { --dot-color: var(--ef-extra); }
+
+/*
+ * Diagonal connector Home → extra node: a horizontal connector (same line and dot animation),
+ * placed at Home's ring and rotated towards the extra node by positionExtraConnector().
+ */
+.conn.conn--d {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  margin: 0;
+  transform-origin: 0 50%;
+}
 
 .conn.is-active .conn__line {
   background: color-mix(in srgb, var(--dot-color) 35%, transparent);
 }
 
 .conn.is-active .conn__dot {
+  will-change: transform, opacity;
   animation-duration: var(--flow-duration);
   animation-direction: var(--flow-direction);
   animation-timing-function: linear;
@@ -394,14 +443,10 @@ body {
 }
 
 .conn--h.is-active .conn__dot {
-  top: 50%;
-  transform: translateY(-50%);
   animation-name: flow-x;
 }
 
 .conn--v.is-active .conn__dot {
-  left: 50%;
-  transform: translateX(-50%);
   animation-name: flow-y;
 }
 
@@ -410,17 +455,17 @@ body {
 .conn.is-active .conn__dot:nth-child(4) { animation-delay: calc(var(--flow-duration) * -0.666); }
 
 @keyframes flow-x {
-  0%   { left: calc(var(--dot) / -2); opacity: 0; }
+  0%   { transform: translateX(0); opacity: 0; }
   15%  { opacity: 1; }
   85%  { opacity: 1; }
-  100% { left: calc(100% - var(--dot) / 2); opacity: 0; }
+  100% { transform: translateX(100%); opacity: 0; }
 }
 
 @keyframes flow-y {
-  0%   { top: calc(var(--dot) / -2); opacity: 0; }
+  0%   { transform: translateY(0); opacity: 0; }
   15%  { opacity: 1; }
   85%  { opacity: 1; }
-  100% { top: calc(100% - var(--dot) / 2); opacity: 0; }
+  100% { transform: translateY(100%); opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
